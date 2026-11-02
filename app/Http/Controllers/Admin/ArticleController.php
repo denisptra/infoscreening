@@ -1,0 +1,132 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Admin\Concerns\HandlesImageUploads;
+use App\Http\Controllers\Controller;
+use App\Models\Article;
+use App\Models\Category;
+use App\Models\Tag;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+
+class ArticleController extends Controller
+{
+    use HandlesImageUploads;
+
+    public function index(Request $request): View
+    {
+        $search = trim((string) $request->get('q', ''));
+        $status = $request->string('status')->toString();
+
+        $articles = Article::query()
+            ->with(['categories', 'author'])
+            ->when($search !== '', fn ($query) => $query->where('title', 'like', "%{$search}%"))
+            ->when(in_array($status, ['draft', 'published'], true), fn ($query) => $query->where('status', $status))
+            ->latest()
+            ->paginate(12)
+            ->withQueryString();
+
+        return view('admin.articles.index', compact('articles', 'search', 'status'));
+    }
+
+    public function create(): View
+    {
+        return view('admin.articles.form', [
+            'article' => new Article(['status' => 'draft']),
+            'categories' => Category::orderBy('name')->get(),
+            'tags' => Tag::orderBy('name')->get(),
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $data = $this->validated($request);
+        $data['user_id'] = $request->user()->id;
+        $data['featured_image'] = $this->resolveImage($request, 'featured_image', null, 'articles');
+
+        $article = Article::create($data);
+        $this->syncRelations($article, $request);
+
+        return redirect()->route('strapi.articles.index')->with('status', 'Artikel berhasil dibuat.');
+    }
+
+    public function edit(Article $article): View
+    {
+        return view('admin.articles.form', [
+            'article' => $article->load(['categories', 'tags']),
+            'categories' => Category::orderBy('name')->get(),
+            'tags' => Tag::orderBy('name')->get(),
+        ]);
+    }
+
+    public function update(Request $request, Article $article): RedirectResponse
+    {
+        $data = $this->validated($request, $article);
+        $data['featured_image'] = $this->resolveImage($request, 'featured_image', $article->featured_image, 'articles');
+
+        $article->update($data);
+        $this->syncRelations($article, $request);
+
+        return redirect()->route('strapi.articles.index')->with('status', 'Artikel berhasil diperbarui.');
+    }
+
+    public function destroy(Article $article): RedirectResponse
+    {
+        $this->deleteStoredImage($article->featured_image);
+        $article->delete();
+
+        return redirect()->route('strapi.articles.index')->with('status', 'Artikel dihapus.');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validated(Request $request, ?Article $article = null): array
+    {
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'max:200'],
+            'slug' => ['nullable', 'string', 'max:220', 'alpha_dash', Rule::unique('articles', 'slug')->ignore($article?->id)],
+            'excerpt' => ['nullable', 'string', 'max:500'],
+            'content' => ['required', 'string'],
+            'status' => ['required', Rule::in(['draft', 'published'])],
+            'published_at' => ['nullable', 'date'],
+            'is_featured' => ['nullable', 'boolean'],
+            'meta_title' => ['nullable', 'string', 'max:200'],
+            'meta_description' => ['nullable', 'string', 'max:300'],
+            'featured_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096'],
+            'direct_featured_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096'],
+            'featured_image_url' => ['nullable', 'url', 'max:500'],
+            'categories' => ['nullable', 'array'],
+            'categories.*' => ['exists:categories,id'],
+            'tags' => ['nullable', 'array'],
+            'tags.*' => ['exists:tags,id'],
+        ]);
+
+        $data = collect($validated)->only([
+            'title', 'slug', 'excerpt', 'content', 'status', 'meta_title', 'meta_description',
+        ])->all();
+
+        $data['slug'] = filled($validated['slug'] ?? null) ? $validated['slug'] : Str::slug($validated['title']);
+        $data['is_featured'] = $request->boolean('is_featured');
+        $data['reading_time'] = max(1, (int) ceil(str_word_count(strip_tags($validated['content'])) / 200));
+        $data['published_at'] = $validated['status'] === 'published'
+            ? ($validated['published_at'] ?? $article?->published_at ?? now())
+            : ($validated['published_at'] ?? null);
+
+        return $data;
+    }
+
+    private function syncRelations(Article $article, Request $request): void
+    {
+        $article->categories()->sync($request->input('categories', []));
+        $article->tags()->sync($request->input('tags', []));
+
+        if ($article->is_featured) {
+            Article::where('id', '!=', $article->id)->where('is_featured', true)->update(['is_featured' => false]);
+        }
+    }
+}
