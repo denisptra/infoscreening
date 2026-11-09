@@ -36,7 +36,7 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-[#f8fafc] text-slate-800 min-h-screen flex flex-col font-sans antialiased selection:bg-[#3A07BB] selection:text-white" x-data="{ mobileMenu: false }">
+<body class="bg-[#f8fafc] text-slate-800 min-h-screen flex flex-col font-sans antialiased selection:bg-[#3A07BB] selection:text-white" x-data="{ mobileMenu: false }" @keydown.escape.window="mobileMenu = false">
 
     <!-- Top Info Bar (Translucent & Minimal) -->
     <div class="bg-[#190457]/90 backdrop-blur-md text-slate-300 text-xs border-b border-white/5">
@@ -46,8 +46,6 @@
                     <i class="far fa-calendar-alt text-xs"></i>
                     <span>{{ now()->translatedFormat('l, d F Y') }}</span>
                 </span>
-                <span class="text-white/20 hidden sm:inline">|</span>
-                <span class="text-slate-300/80 hidden sm:inline font-normal">Sinema Alternatif &amp; Festival Film Indonesia</span>
             </div>
 
             <div class="flex items-center gap-3.5 text-xs whitespace-nowrap">
@@ -59,9 +57,9 @@
                 </div>
                 <span class="text-white/20">|</span>
                 @auth
-                    @if(auth()->user()->is_admin)
-                        <a href="{{ url('/admin') }}" class="inline-flex items-center gap-1.5 font-medium text-amber-300 hover:text-white transition text-xs">
-                            <i class="fas fa-gauge text-[11px]"></i> <span>Panel Admin</span>
+                    @if(auth()->user()->canAccessCms())
+                        <a href="{{ route('dashboard') }}" class="inline-flex items-center gap-1.5 font-medium text-amber-300 hover:text-white transition text-xs">
+                            <i class="fas fa-gauge text-[11px]"></i> <span>Panel CMS</span>
                         </a>
                     @else
                         <a href="{{ route('dashboard') }}" class="hover:text-white font-medium transition text-xs">
@@ -98,91 +96,49 @@
                     </a>
                 </div>
 
-                <!-- Center: Desktop Horizontal Menu (Text-only hover, no box button, Inter font) -->
+                <!-- Center: Desktop Horizontal Menu -->
                 <nav class="hidden lg:flex items-center space-x-2 text-[13px] font-normal text-white/80 whitespace-nowrap">
-                    <a
-                        href="{{ route('home') }}"
-                        class="py-2 px-2.5 transition duration-200 hover:text-white {{ request()->routeIs('home') ? 'text-white font-medium' : 'text-white/80' }}"
-                    >
-                        <span>Beranda</span>
-                    </a>
+                    @foreach ($headerMenuItems as $item)
+                        <div class="relative" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false">
+                            <div class="flex items-center">
+                                @if ($item->url)
+                                    <a
+                                        href="{{ $item->url }}"
+                                        @if ($item->open_in_new_tab) target="_blank" rel="noopener noreferrer" @endif
+                                        class="py-2 px-2.5 transition duration-200 hover:text-white"
+                                    >{{ $item->label }}</a>
+                                @elseif ($item->children->isNotEmpty())
+                                    <button type="button" @click="open = !open" :aria-expanded="open.toString()" aria-haspopup="true" aria-controls="desktop-menu-{{ $item->id }}" class="py-2 px-2.5 transition duration-200 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 rounded-md">
+                                        {{ $item->label }}
+                                        <i class="fas fa-chevron-down ml-1 text-[9px] transition-transform duration-200" :class="open ? 'rotate-180' : ''"></i>
+                                    </button>
+                                @else
+                                    <span class="py-2 px-2.5">{{ $item->label }}</span>
+                                @endif
 
-                    <!-- Artikel Dropdown -->
-                    <div class="relative group" x-data="{ open: false }" @mouseenter="open = true" @mouseleave="open = false">
-                        <a
-                            href="{{ route('articles.index') }}"
-                            class="py-2 px-2.5 transition duration-200 hover:text-white flex items-center gap-1.5 {{ request()->routeIs('articles.*') ? 'text-white font-medium' : 'text-white/80' }}"
-                        >
-                            <span>Artikel</span>
-                            <i class="fas fa-chevron-down text-[9px] opacity-70 group-hover:rotate-180 transition-transform duration-200"></i>
-                        </a>
-                        <div x-show="open" x-cloak class="absolute left-0 top-full pt-2 w-48 z-50">
-                            <div class="bg-white/95 backdrop-blur-md text-slate-700 shadow-xl border border-slate-100 rounded-xl py-2 overflow-hidden text-xs">
-                                <a href="{{ route('categories.show', ['category' => 'berita']) }}" class="block px-4 py-2 text-slate-600 hover:text-[#3A07BB] hover:bg-slate-50/70 transition">Berita Film</a>
-                                <a href="{{ route('categories.show', ['category' => 'wawancara']) }}" class="block px-4 py-2 text-slate-600 hover:text-[#3A07BB] hover:bg-slate-50/70 transition">Wawancara Sineas</a>
-                                <a href="{{ route('categories.show', ['category' => 'kritik-film']) }}" class="block px-4 py-2 text-slate-600 hover:text-[#3A07BB] hover:bg-slate-50/70 transition">Kritik &amp; Esai</a>
-                                <div class="border-t border-slate-100 my-1"></div>
-                                <a href="{{ route('articles.index') }}" class="block px-4 py-2 font-medium text-[#3A07BB] hover:text-[#280482] hover:bg-slate-50/70 transition">Semua Artikel &rarr;</a>
+                                @if ($item->children->isNotEmpty() && $item->url)
+                                    <button type="button" @click="open = !open" :aria-expanded="open.toString()" aria-haspopup="true" aria-controls="desktop-menu-{{ $item->id }}" aria-label="Buka submenu {{ $item->label }}" class="py-2 pr-2.5 text-white/80 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 rounded-md">
+                                        <i class="fas fa-chevron-down text-[9px] transition-transform duration-200" :class="open ? 'rotate-180' : ''"></i>
+                                    </button>
+                                @endif
                             </div>
+                            @if ($item->children->isNotEmpty())
+                                <div id="desktop-menu-{{ $item->id }}" x-show="open" x-cloak x-transition.origin.top.right class="absolute right-0 top-full z-50 w-56">
+                                    <div class="overflow-hidden rounded-xl border border-slate-100 bg-white py-2 text-xs text-slate-700 shadow-xl">
+                                        @foreach ($item->children as $child)
+                                            @if ($child->url)
+                                                <a
+                                                    href="{{ $child->url }}"
+                                                    @if ($child->open_in_new_tab) target="_blank" rel="noopener noreferrer" @endif
+                                                    class="block px-4 py-2 text-slate-600 transition hover:bg-slate-50 hover:text-[#3A07BB] focus-visible:outline-none focus-visible:bg-slate-50 focus-visible:text-[#3A07BB]"
+                                                >{{ $child->label }}</a>
+                                            @endif
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
                         </div>
-                    </div>
-
-                    <a
-                        href="{{ route('events.index') }}"
-                        class="py-2 px-2.5 transition duration-200 hover:text-white {{ request()->routeIs('events.*') || request()->routeIs('calendar.*') ? 'text-white font-medium' : 'text-white/80' }}"
-                    >
-                        <span>Kalender Event</span>
-                    </a>
-
-                    <a
-                        href="{{ route('contribute.create') }}"
-                        class="py-2 px-2.5 transition duration-200 hover:text-white {{ request()->routeIs('contribute.*') ? 'text-white font-medium' : 'text-white/80' }}"
-                    >
-                        <span>Berkontribusi</span>
-                    </a>
-
-                    <!-- Tentang Kami Dropdown -->
-                    <div class="relative group" x-data="{ open: false }" @mouseenter="open = true" @mouseleave="open = false">
-                        <a
-                            href="{{ route('pages.show', ['slug' => 'tentang-kami']) }}"
-                            class="py-2 px-2.5 transition duration-200 hover:text-white flex items-center gap-1.5 {{ request()->is('tentang-kami') || request()->routeIs('directory.authors') ? 'text-white font-medium' : 'text-white/80' }}"
-                        >
-                            <span>Tentang Kami</span>
-                            <i class="fas fa-chevron-down text-[9px] opacity-70 group-hover:rotate-180 transition-transform duration-200"></i>
-                        </a>
-                        <div x-show="open" x-cloak class="absolute left-0 top-full pt-2 w-44 z-50">
-                            <div class="bg-white/95 backdrop-blur-md text-slate-700 shadow-xl border border-slate-100 rounded-xl py-2 overflow-hidden text-xs">
-                                <a href="{{ route('pages.show', ['slug' => 'tentang-kami']) }}" class="block px-4 py-2 text-slate-600 hover:text-[#3A07BB] hover:bg-slate-50/70 transition">Profil Infoscreening</a>
-                                <a href="{{ route('directory.authors') }}" class="block px-4 py-2 text-slate-600 hover:text-[#3A07BB] hover:bg-slate-50/70 transition">Authors List</a>
-                                <a href="{{ route('pages.show', ['slug' => 'kontak']) }}" class="block px-4 py-2 text-slate-600 hover:text-[#3A07BB] hover:bg-slate-50/70 transition">Kontak Redaksi</a>
-                                <a href="{{ route('pages.show', ['slug' => 'kebijakan-privasi']) }}" class="block px-4 py-2 text-slate-600 hover:text-[#3A07BB] hover:bg-slate-50/70 transition">Kebijakan Privasi</a>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Rupa Jasa Dropdown -->
-                    <div class="relative group" x-data="{ open: false }" @mouseenter="open = true" @mouseleave="open = false">
-                        <a
-                            href="{{ route('directory.services') }}"
-                            class="py-2 px-2.5 transition duration-200 hover:text-white flex items-center gap-1.5 {{ request()->routeIs('directory.services') || request()->routeIs('directory.experts') ? 'text-white font-medium' : 'text-white/80' }}"
-                        >
-                            <span>Rupa Jasa</span>
-                            <i class="fas fa-chevron-down text-[9px] opacity-70 group-hover:rotate-180 transition-transform duration-200"></i>
-                        </a>
-                        <div x-show="open" x-cloak class="absolute left-0 top-full pt-2 w-48 z-50">
-                            <div class="bg-white/95 backdrop-blur-md text-slate-700 shadow-xl border border-slate-100 rounded-xl py-2 overflow-hidden text-xs">
-                                <a href="{{ route('directory.services') }}" class="block px-4 py-2 text-slate-600 hover:text-[#3A07BB] hover:bg-slate-50/70 transition">Layanan Kemitraan</a>
-                                <a href="{{ route('directory.experts') }}" class="block px-4 py-2 text-slate-600 hover:text-[#3A07BB] hover:bg-slate-50/70 transition">Tenaga Ahli Sinema</a>
-                            </div>
-                        </div>
-                    </div>
-
-                    <a
-                        href="{{ route('directory.shop') }}"
-                        class="py-2 px-2.5 transition duration-200 hover:text-white {{ request()->routeIs('directory.shop') ? 'text-white font-medium' : 'text-white/80' }}"
-                    >
-                        <span>Toko / Zine</span>
-                    </a>
+                    @endforeach
                 </nav>
 
                 <!-- Right: Clean Search Bar (Responsive) -->
@@ -217,15 +173,47 @@
         >
             <div class="pb-2 border-b border-white/10 flex items-center justify-between">
                 <x-application-logo variant="white" class="h-6 w-auto" />
-                <span class="text-[11px] text-purple-200 font-normal">Sinema Alternatif</span>
             </div>
-            <a href="{{ route('home') }}" class="block py-2 text-white/90 hover:text-white transition">Beranda</a>
-            <a href="{{ route('articles.index') }}" class="block py-2 text-white/90 hover:text-white transition">Artikel &amp; Resensi</a>
-            <a href="{{ route('events.index') }}" class="block py-2 text-white/90 hover:text-white transition">Kalender Event Sinema</a>
-            <a href="{{ route('contribute.create') }}" class="block py-2 text-white/90 hover:text-white transition">Berkontribusi</a>
-            <a href="{{ route('directory.experts') }}" class="block py-2 text-white/90 hover:text-white transition">Tenaga Ahli (Rupa Jasa)</a>
-            <a href="{{ route('directory.shop') }}" class="block py-2 text-white/90 hover:text-white transition">Toko Merchandise &amp; Zine</a>
-            <a href="{{ route('pages.show', ['slug' => 'tentang-kami']) }}" class="block py-2 text-white/90 hover:text-white transition">Tentang Kami</a>
+            @foreach ($headerMenuItems as $item)
+                <div x-data="{ open: false }" @keydown.escape.window="open = false">
+                    <div class="flex items-center justify-between gap-2">
+                        @if ($item->url)
+                            <a
+                                href="{{ $item->url }}"
+                                @if ($item->open_in_new_tab) target="_blank" rel="noopener noreferrer" @endif
+                                @click="mobileMenu = false"
+                                class="block flex-1 py-2 text-white/90 transition hover:text-white"
+                            >{{ $item->label }}</a>
+                        @elseif ($item->children->isNotEmpty())
+                            <button type="button" @click="open = !open" :aria-expanded="open.toString()" aria-haspopup="true" aria-controls="mobile-menu-{{ $item->id }}" class="flex-1 py-2 text-left text-white/90 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 rounded-md">
+                                {{ $item->label }}
+                                <i class="fas fa-chevron-down ml-1 text-[10px] transition-transform" :class="open ? 'rotate-180' : ''"></i>
+                            </button>
+                        @else
+                            <span class="flex-1 py-2 text-white/90">{{ $item->label }}</span>
+                        @endif
+                        @if ($item->children->isNotEmpty() && $item->url)
+                            <button type="button" @click="open = !open" :aria-expanded="open.toString()" aria-haspopup="true" aria-controls="mobile-menu-{{ $item->id }}" aria-label="Buka submenu {{ $item->label }}" class="px-2 py-2 text-white/80 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 rounded-md">
+                                <i class="fas fa-chevron-down text-[10px] transition-transform" :class="open ? 'rotate-180' : ''"></i>
+                            </button>
+                        @endif
+                    </div>
+                    @if ($item->children->isNotEmpty())
+                        <div id="mobile-menu-{{ $item->id }}" x-show="open" x-cloak x-transition class="space-y-1 border-l border-white/20 pl-4">
+                            @foreach ($item->children as $child)
+                                @if ($child->url)
+                                    <a
+                                        href="{{ $child->url }}"
+                                        @if ($child->open_in_new_tab) target="_blank" rel="noopener noreferrer" @endif
+                                        @click="mobileMenu = false"
+                                        class="block py-1.5 text-xs text-white/75 transition hover:text-white focus-visible:outline-none focus-visible:text-white"
+                                    >{{ $child->label }}</a>
+                                @endif
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+            @endforeach
         </div>
     </header>
 
@@ -244,86 +232,143 @@
     </main>
 
     <!-- Refined Footer -->
-    <footer class="bg-[#181824] text-slate-300 mt-20 border-t border-slate-800">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                <!-- Col 1: Logo & About -->
-                <div class="space-y-4">
+    <footer id="site-footer" class="mt-20 border-t border-[#242638] bg-[#171824] text-[#9aabc2]">
+        <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+                <div class="space-y-5">
                     <a href="{{ route('home') }}" class="inline-block">
                         <x-application-logo variant="white" class="h-7 w-auto opacity-95" />
                     </a>
-                    <p class="text-xs text-slate-400 leading-relaxed font-normal">
-                        Dimulai dari kegemaran menonton film-film pada festival film dan pemutaran alternatif, InfoScreening merupakan media informasi pemutaran sinema alternatif di Indonesia sejak tahun 2012.
-                    </p>
-                    <div class="flex items-center gap-2.5 pt-1 text-white">
-                        <a href="https://facebook.com" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-[#3A07BB] flex items-center justify-center text-xs transition"><i class="fab fa-facebook-f"></i></a>
-                        <a href="https://twitter.com/infoscreening" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-[#3A07BB] flex items-center justify-center text-xs transition"><i class="fab fa-x-twitter"></i></a>
-                        <a href="https://instagram.com/infoscreening" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-[#3A07BB] flex items-center justify-center text-xs transition"><i class="fab fa-instagram"></i></a>
-                        <a href="https://youtube.com/user/infoscreening" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-[#3A07BB] flex items-center justify-center text-xs transition"><i class="fab fa-youtube"></i></a>
-                    </div>
+                    <p class="max-w-sm text-sm leading-6 text-[#9aabc2]">{{ $footerAbout }}</p>
+                    <nav aria-label="Media sosial" class="flex gap-2.5">
+                        <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook" class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#22283a] text-white transition hover:bg-[#303950] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5682ff]">
+                            <i class="fab fa-facebook-f" aria-hidden="true"></i>
+                        </a>
+                        <a href="https://twitter.com/infoscreening" target="_blank" rel="noopener noreferrer" aria-label="X" class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#22283a] text-white transition hover:bg-[#303950] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5682ff]">
+                            <i class="fab fa-x-twitter" aria-hidden="true"></i>
+                        </a>
+                        <a href="https://instagram.com/infoscreening" target="_blank" rel="noopener noreferrer" aria-label="Instagram" class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#22283a] text-white transition hover:bg-[#303950] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5682ff]">
+                            <i class="fab fa-instagram" aria-hidden="true"></i>
+                        </a>
+                        <a href="https://youtube.com/user/infoscreening" target="_blank" rel="noopener noreferrer" aria-label="YouTube" class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#22283a] text-white transition hover:bg-[#303950] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5682ff]">
+                            <i class="fab fa-youtube" aria-hidden="true"></i>
+                        </a>
+                    </nav>
                 </div>
 
-                <!-- Col 2: Rubrikasi Artikel -->
-                <div>
-                    <h3 class="font-medium text-xs uppercase tracking-wider text-white mb-4">
-                        Rubrikasi Artikel
-                    </h3>
-                    <ul class="space-y-2 text-xs text-slate-400">
-                        <li><a href="{{ route('categories.show', ['category' => 'berita']) }}" class="hover:text-white transition">Berita Perfilman</a></li>
-                        <li><a href="{{ route('categories.show', ['category' => 'wawancara']) }}" class="hover:text-white transition">Wawancara Sineas</a></li>
-                        <li><a href="{{ route('categories.show', ['category' => 'festival']) }}" class="hover:text-white transition">Festival Film</a></li>
-                        <li><a href="{{ route('categories.show', ['category' => 'pemutaran']) }}" class="hover:text-white transition">Pemutaran Alternatif</a></li>
-                        <li><a href="{{ route('categories.show', ['category' => 'kritik-film']) }}" class="hover:text-white transition">Kritik &amp; Esai Film</a></li>
-                        <li><a href="{{ route('articles.index') }}" class="hover:text-[#a680f5] transition font-medium">Semua Arsip Tulisan &rarr;</a></li>
+                <section aria-labelledby="footer-categories-heading">
+                    <h2 id="footer-categories-heading" class="mb-4 text-sm font-semibold text-white">Rubrikasi Artikel</h2>
+                    <ul class="space-y-2.5 text-sm">
+                        @if ($footerRubricMenu)
+                            @if ($footerRubricMenu->url)
+                                <li>
+                                    <a href="{{ $footerRubricMenu->url }}" class="transition hover:text-white focus-visible:outline-none focus-visible:text-white">{{ $footerRubricMenu->label }}</a>
+                                </li>
+                            @endif
+                            @foreach ($footerRubricMenu->children as $item)
+                                <li>
+                                    <a
+                                        href="{{ $item->url }}"
+                                        @if ($item->open_in_new_tab) target="_blank" rel="noopener noreferrer" @endif
+                                        class="transition hover:text-white focus-visible:outline-none focus-visible:text-white"
+                                    >{{ $item->label }}</a>
+                                </li>
+                            @endforeach
+                            @foreach ($footerCategories as $category)
+                                <li>
+                                    <a href="{{ route('categories.show', ['category' => $category]) }}" class="transition hover:text-white focus-visible:outline-none focus-visible:text-white">{{ $category->name }}</a>
+                                </li>
+                            @endforeach
+                            @if ($footerRubricMenu->children->isEmpty())
+                                <li>
+                                    <a href="{{ route('articles.index') }}" class="font-medium text-[#c2d0e5] transition hover:text-white focus-visible:outline-none focus-visible:text-white">Semua arsip tulisan</a>
+                                </li>
+                            @endif
+                        @else
+                            @forelse ($footerCategories as $category)
+                                <li>
+                                    <a href="{{ route('categories.show', ['category' => $category]) }}" class="transition hover:text-white focus-visible:outline-none focus-visible:text-white">{{ $category->name }}</a>
+                                </li>
+                            @empty
+                                <li class="text-sm text-[#73829a]">Rubrik akan tampil setelah konten ditambahkan.</li>
+                            @endforelse
+                            <li>
+                                <a href="{{ route('articles.index') }}" class="font-medium text-[#c2d0e5] transition hover:text-white focus-visible:outline-none focus-visible:text-white">Semua arsip tulisan</a>
+                            </li>
+                        @endif
                     </ul>
-                </div>
+                </section>
 
-                <!-- Col 3: Ekosistem Sinema -->
-                <div>
-                    <h3 class="font-medium text-xs uppercase tracking-wider text-white mb-4">
-                        Ekosistem Sinema
-                    </h3>
-                    <ul class="space-y-2 text-xs text-slate-400">
-                        <li><a href="{{ route('events.index') }}" class="hover:text-white transition">Kalender Acara Sinema</a></li>
-                        <li><a href="{{ route('contribute.create') }}" class="hover:text-white transition">Kirim Liputan / Naskah</a></li>
-                        <li><a href="{{ route('directory.experts') }}" class="hover:text-white transition">Tenaga Ahli Film</a></li>
-                        <li><a href="{{ route('directory.authors') }}" class="hover:text-white transition">Daftar Penulis (Authors)</a></li>
-                        <li><a href="{{ route('directory.shop') }}" class="hover:text-white transition">Toko Zine &amp; Merchandise</a></li>
-                        <li><a href="{{ route('pages.show', ['slug' => 'kontak']) }}" class="hover:text-white transition">Kontak Redaksi</a></li>
+                <section aria-labelledby="footer-ecosystem-heading">
+                    <h2 id="footer-ecosystem-heading" class="mb-4 text-sm font-semibold text-white">Ekosistem Sinema</h2>
+                    @if ($footerMenuItems->isNotEmpty())
+                        <div class="space-y-4">
+                            @foreach ($footerMenuItems as $group)
+                                <div>
+                                    @if ($group->url)
+                                        <a
+                                            href="{{ $group->url }}"
+                                            @if ($group->open_in_new_tab) target="_blank" rel="noopener noreferrer" @endif
+                                            class="mb-2 inline-block text-sm font-medium text-[#c2d0e5] transition hover:text-white focus-visible:outline-none focus-visible:text-white"
+                                        >{{ $group->label }}</a>
+                                    @elseif ($group->children->isNotEmpty())
+                                        <h3 class="mb-2 text-xs font-medium text-[#c2d0e5]">{{ $group->label }}</h3>
+                                    @endif
+                                    <ul class="space-y-2 text-sm">
+                                        @foreach ($group->children as $item)
+                                            <li>
+                                                <a
+                                                    href="{{ $item->url }}"
+                                                    @if ($item->open_in_new_tab) target="_blank" rel="noopener noreferrer" @endif
+                                                    class="transition hover:text-white focus-visible:outline-none focus-visible:text-white"
+                                                >{{ $item->label }}</a>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <ul class="space-y-2.5 text-sm">
+                            <li><a href="{{ route('events.index') }}" class="transition hover:text-white focus-visible:outline-none focus-visible:text-white">Kalender Acara Sinema</a></li>
+                            <li><a href="{{ route('contribute.create') }}" class="transition hover:text-white focus-visible:outline-none focus-visible:text-white">Kirim Liputan / Naskah</a></li>
+                            <li><a href="{{ route('directory.experts') }}" class="transition hover:text-white focus-visible:outline-none focus-visible:text-white">Tenaga Ahli Film</a></li>
+                            <li><a href="{{ route('directory.authors') }}" class="transition hover:text-white focus-visible:outline-none focus-visible:text-white">Daftar Penulis</a></li>
+                            <li><a href="{{ route('directory.shop') }}" class="transition hover:text-white focus-visible:outline-none focus-visible:text-white">Toko Zine &amp; Merchandise</a></li>
+                            <li><a href="{{ route('pages.show', ['slug' => 'kontak']) }}" class="transition hover:text-white focus-visible:outline-none focus-visible:text-white">Kontak Redaksi</a></li>
+                        </ul>
+                    @endif
+                </section>
+
+                <section aria-labelledby="footer-topics-heading">
+                    <h2 id="footer-topics-heading" class="mb-4 text-sm font-semibold text-white">Topik Pilihan</h2>
+                    <ul class="flex flex-wrap content-start gap-2">
+                        @forelse ($footerTags as $tag)
+                            <li>
+                                <a href="{{ route('tags.show', ['tag' => $tag]) }}" class="inline-flex rounded-lg bg-[#22283a] px-3 py-1.5 text-xs text-[#c2d0e5] transition hover:bg-[#303950] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5682ff]">
+                                    #{{ $tag->name }}
+                                </a>
+                            </li>
+                        @empty
+                            <li class="text-sm text-[#73829a]">Topik populer akan tampil setelah artikel diberi tag.</li>
+                        @endforelse
                     </ul>
-                </div>
-
-                <!-- Col 4: Topik Pilihan -->
-                <div>
-                    <h3 class="font-medium text-xs uppercase tracking-wider text-white mb-4">
-                        Topik Pilihan
-                    </h3>
-                    <div class="flex flex-wrap gap-1.5">
-                        @php
-                            $tags = ['Film Indonesia', 'Sinema Rabu', 'Pemutaran Alternatif', 'Minikino', 'Kineforum', 'Film Dokumenter', 'Yogyakarta', 'Film Pendek', 'Jakarta', 'JAFF', 'Arthouse Cinema'];
-                        @endphp
-                        @foreach ($tags as $item)
-                            <a href="{{ route('search.index', ['q' => $item]) }}" class="text-[11px] bg-slate-800/80 hover:bg-[#3A07BB] hover:text-white text-slate-300 px-2.5 py-1 rounded-md transition whitespace-nowrap">
-                                #{{ $item }}
-                            </a>
-                        @endforeach
-                    </div>
-                </div>
+                </section>
             </div>
 
-            <!-- Footer Bottom Bar -->
-            <div class="mt-12 pt-6 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500 font-normal">
-                <p>&copy; {{ date('Y') }} Infoscreening.id. Festival Film dan Rupa-Rupa Sinema.</p>
-                <div class="flex items-center gap-6">
-                    <a href="{{ route('pages.show', ['slug' => 'kebijakan-privasi']) }}" class="hover:text-slate-300 transition">Kebijakan Privasi</a>
-                    <a href="{{ route('pages.show', ['slug' => 'kontak']) }}" class="hover:text-slate-300 transition">Kontak Redaksi</a>
-                    <a href="#top" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); return false;" class="text-purple-300 hover:text-white flex items-center gap-1 font-medium">
+            <div class="mt-12 flex flex-col gap-4 border-t border-[#292b3d] pt-6 text-sm text-[#73829a] sm:flex-row sm:items-center sm:justify-between">
+                <p>&copy; {{ date('Y') }} {{ $footerCopyright }}. Festival Film dan Rupa-Rupa Sinema.</p>
+                <nav aria-label="Tautan footer" class="flex flex-wrap items-center gap-x-6 gap-y-3">
+                    <a href="{{ route('pages.show', ['slug' => 'kebijakan-privasi']) }}" class="transition hover:text-white focus-visible:outline-none focus-visible:text-white">Kebijakan Privasi</a>
+                    <a href="{{ route('pages.show', ['slug' => 'kontak']) }}" class="transition hover:text-white focus-visible:outline-none focus-visible:text-white">Kontak Redaksi</a>
+                    <a href="#top" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); return false;" class="font-medium text-[#c7a6ff] transition hover:text-white focus-visible:outline-none focus-visible:text-white flex items-center gap-1">
                         <span>Ke Atas</span> <i class="fas fa-arrow-up text-[10px]"></i>
                     </a>
-                </div>
+                </nav>
             </div>
         </div>
     </footer>
 
+    <x-ui-feedback />
 </body>
 </html>

@@ -59,7 +59,7 @@
                                 <a href="{{ route('tags.show', ['tag' => $tag]) }}" target="_blank" class="p-1 text-[#8e8ea9] hover:text-[#32324d]" title="View Live">
                                     <i class="fas fa-arrow-up-right-from-square text-[11px]"></i>
                                 </a>
-                                <form method="POST" action="{{ route('strapi.tags.destroy', $tag) }}" class="inline" onsubmit="return confirm('Delete this tag?');">
+                                <form method="POST" action="{{ route('strapi.tags.destroy', $tag) }}" class="inline" data-confirm data-confirm-title="Hapus tag?" data-confirm-message="Tag ini akan dihapus permanen." data-confirm-action="Hapus tag">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="p-1 text-[#8e8ea9] hover:text-red-600" title="Delete">

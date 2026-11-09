@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\UserRole;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
@@ -22,7 +23,27 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
-        return (bool) $this->is_admin;
+        return $this->role === UserRole::SuperAdmin;
+    }
+
+    public function canAccessCms(): bool
+    {
+        return $this->role?->canAccessCms() ?? false;
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === UserRole::SuperAdmin;
+    }
+
+    public function isEditorialAdmin(): bool
+    {
+        return $this->role === UserRole::Admin;
+    }
+
+    public function isEditor(): bool
+    {
+        return $this->role === UserRole::Editor;
     }
 
     public function articles(): HasMany
@@ -41,6 +62,7 @@ class User extends Authenticatable implements FilamentUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_admin' => 'boolean',
+            'role' => UserRole::class,
         ];
     }
 }

@@ -10,6 +10,7 @@ use App\Models\Tag;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -19,11 +20,17 @@ class ArticleController extends Controller
 
     public function index(Request $request): View
     {
+        Gate::authorize('viewAny', Article::class);
+
         $search = trim((string) $request->get('q', ''));
         $status = $request->string('status')->toString();
 
         $articles = Article::query()
             ->with(['categories', 'author'])
+            ->when(
+                $request->user()->isEditor(),
+                fn ($query) => $query->whereBelongsTo($request->user(), 'author')
+            )
             ->when($search !== '', fn ($query) => $query->where('title', 'like', "%{$search}%"))
             ->when(in_array($status, ['draft', 'published'], true), fn ($query) => $query->where('status', $status))
             ->latest()
@@ -35,6 +42,8 @@ class ArticleController extends Controller
 
     public function create(): View
     {
+        Gate::authorize('create', Article::class);
+
         return view('admin.articles.form', [
             'article' => new Article(['status' => 'draft']),
             'categories' => Category::orderBy('name')->get(),
@@ -44,8 +53,15 @@ class ArticleController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        Gate::authorize('create', Article::class);
+
         $data = $this->validated($request);
         $data['user_id'] = $request->user()->id;
+        if ($request->user()->isEditor()) {
+            $data['status'] = 'draft';
+            $data['published_at'] = null;
+            $data['is_featured'] = false;
+        }
         $data['featured_image'] = $this->resolveImage($request, 'featured_image', null, 'articles');
 
         $article = Article::create($data);
@@ -56,6 +72,8 @@ class ArticleController extends Controller
 
     public function edit(Article $article): View
     {
+        Gate::authorize('update', $article);
+
         return view('admin.articles.form', [
             'article' => $article->load(['categories', 'tags']),
             'categories' => Category::orderBy('name')->get(),
@@ -65,7 +83,14 @@ class ArticleController extends Controller
 
     public function update(Request $request, Article $article): RedirectResponse
     {
+        Gate::authorize('update', $article);
+
         $data = $this->validated($request, $article);
+        if ($request->user()->isEditor()) {
+            $data['status'] = 'draft';
+            $data['published_at'] = null;
+            $data['is_featured'] = false;
+        }
         $data['featured_image'] = $this->resolveImage($request, 'featured_image', $article->featured_image, 'articles');
 
         $article->update($data);
@@ -76,6 +101,8 @@ class ArticleController extends Controller
 
     public function destroy(Article $article): RedirectResponse
     {
+        Gate::authorize('delete', $article);
+
         $this->deleteStoredImage($article->featured_image);
         $article->delete();
 

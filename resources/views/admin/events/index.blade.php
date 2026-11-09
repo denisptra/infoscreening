@@ -98,7 +98,7 @@
                                 <a href="{{ route('events.show', ['event' => $ev]) }}" target="_blank" class="p-1 text-[#8e8ea9] hover:text-[#32324d]" title="View Live">
                                     <i class="fas fa-arrow-up-right-from-square text-[11px]"></i>
                                 </a>
-                                <form method="POST" action="{{ route('strapi.events.destroy', $ev) }}" class="inline" onsubmit="return confirm('Delete this event?');">
+                                <form method="POST" action="{{ route('strapi.events.destroy', $ev) }}" class="inline" data-confirm data-confirm-title="Hapus agenda?" data-confirm-message="Agenda ini akan dihapus permanen." data-confirm-action="Hapus agenda">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="p-1 text-[#8e8ea9] hover:text-red-600" title="Delete">

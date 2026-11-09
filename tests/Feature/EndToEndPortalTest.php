@@ -120,9 +120,9 @@ class EndToEndPortalTest extends TestCase
         $this->get('/halaman-fiktif-404')->assertNotFound();
     }
 
-    public function test_complete_admin_strapi_cms_crud_lifecycle(): void
+    public function test_complete_super_admin_strapi_cms_crud_lifecycle(): void
     {
-        $admin = User::factory()->admin()->create();
+        $admin = User::factory()->superAdmin()->create();
 
         // 1. Create Category via Strapi CMS
         $catResponse = $this->actingAs($admin)->post('/strapi/categories', [

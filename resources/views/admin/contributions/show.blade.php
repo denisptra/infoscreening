@@ -77,7 +77,7 @@
 
         <!-- Status update & actions -->
         <div class="pt-5 border-t border-[#eaeaef] flex flex-wrap items-center justify-between gap-4">
-            <form method="POST" action="{{ route('strapi.contributions.destroy', $contribution) }}" onsubmit="return confirm('Delete this submission?');">
+            <form method="POST" action="{{ route('strapi.contributions.destroy', $contribution) }}" data-confirm data-confirm-title="Hapus kontribusi?" data-confirm-message="Kontribusi ini akan dihapus permanen." data-confirm-action="Hapus kontribusi">
                 @csrf
                 @method('DELETE')
                 <button type="submit" class="px-3.5 py-2 text-xs text-rose-600 hover:text-rose-800 font-medium rounded-lg hover:bg-rose-50 transition">

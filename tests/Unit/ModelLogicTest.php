@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Enums\UserRole;
 use App\Models\Article;
 use App\Models\Expert;
 use App\Models\Product;
@@ -52,11 +53,16 @@ class ModelLogicTest extends TestCase
     {
         $panel = \Mockery::mock(Panel::class);
 
-        $regularUser = new User(['is_admin' => false]);
-        $this->assertFalse($regularUser->canAccessPanel($panel));
-
         $adminUser = new User;
-        $adminUser->is_admin = true;
-        $this->assertTrue($adminUser->canAccessPanel($panel));
+        $adminUser->forceFill(['role' => UserRole::Admin]);
+        $this->assertFalse($adminUser->canAccessPanel($panel));
+
+        $editorUser = new User;
+        $editorUser->forceFill(['role' => UserRole::Editor]);
+        $this->assertFalse($editorUser->canAccessPanel($panel));
+
+        $superAdmin = new User;
+        $superAdmin->forceFill(['role' => UserRole::SuperAdmin]);
+        $this->assertTrue($superAdmin->canAccessPanel($panel));
     }
 }

@@ -172,7 +172,7 @@
                                         </div>
                                     </td>
                                     <td class="p-3.5 text-right pr-5 text-slate-400 space-x-1">
-                                        <button type="button" @click="alert('Field konfigurasi {{ $field['name'] }} sudah aktif sesuai skema Eloquent & database.')" class="p-1 hover:text-[#4945ff]" title="Configure Field">
+                                        <button type="button" @click="$dispatch('app-toast', { type: 'info', message: 'Pengaturan field dikelola melalui model dan migration Laravel.' })" class="rounded p-1 hover:text-[#4945ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4945ff]" title="Informasi konfigurasi field" aria-label="Informasi konfigurasi field {{ $field['name'] }}">
                                             <i class="fas fa-gear text-xs"></i>
                                         </button>
                                     </td>
@@ -205,7 +205,7 @@
                     <span class="truncate">/api/{{ $activeCollection['plural'] }}?populate=*</span>
                     <button
                         type="button"
-                        @click="navigator.clipboard.writeText('/api/{{ $activeCollection['plural'] }}?populate=*'); alert('Endpoint disalin!');"
+                        @click="$dispatch('app-copy', { text: @js('/api/'.$activeCollection['plural'].'?populate=*'), label: 'Endpoint API' })"
                         class="text-xs text-white/70 hover:text-white px-2 py-1 rounded bg-white/10"
                     >
                         Copy
@@ -225,17 +225,20 @@
         x-cloak
         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
         @keydown.escape.window="addFieldModal = false"
+        @click.self="addFieldModal = false"
     >
-        <div
-            @click.outside="addFieldModal = false"
+        <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="field-types-title"
             class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full border border-[#eaeaef] overflow-hidden"
         >
             <div class="p-5 border-b border-[#eaeaef] flex items-center justify-between bg-[#fafafc]">
                 <div>
-                    <h3 class="font-sans font-semibold text-base text-[#32324d]">Select a Field Type</h3>
-                    <p class="text-xs text-[#8e8ea9]">Pilih tipe field Strapi yang ingin ditambahkan ke koleksi {{ $activeCollection['name'] }}.</p>
+                    <h3 id="field-types-title" class="font-sans font-semibold text-base text-[#32324d]">Tipe field</h3>
+                    <p class="text-xs text-[#8e8ea9]">Daftar ini bersifat informatif. Penambahan field dilakukan melalui model dan migration Laravel.</p>
                 </div>
-                <button @click="addFieldModal = false" class="text-slate-400 hover:text-slate-700 p-1">
+                <button type="button" @click="addFieldModal = false" aria-label="Tutup daftar tipe field" class="text-slate-400 hover:text-slate-700 p-1">
                     <i class="fas fa-times text-sm"></i>
                 </button>
             </div>
@@ -256,10 +259,7 @@
                 @endphp
 
                 @foreach ($fieldTypes as $ft)
-                    <div
-                        @click="alert('Field ' + '{{ $ft['title'] }}' + ' sudah tersedia di controller dan database skema saat ini.'); addFieldModal = false;"
-                        class="p-3.5 rounded-xl border border-[#eaeaef] hover:border-[#4945ff] hover:bg-[#f0ebfc]/30 cursor-pointer transition flex flex-col justify-between group"
-                    >
+                    <div class="p-3.5 rounded-xl border border-[#eaeaef] flex flex-col justify-between">
                         <div class="flex items-center gap-2 mb-2">
                             <div class="w-8 h-8 rounded-lg {{ $ft['bg'] }} {{ $ft['color'] }} flex items-center justify-center text-xs">
                                 <i class="fas {{ $ft['icon'] }}"></i>
@@ -272,11 +272,11 @@
             </div>
 
             <div class="p-4 bg-[#fafafc] border-t border-[#eaeaef] flex justify-end">
-                <button @click="addFieldModal = false" class="px-4 py-2 rounded-lg bg-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-300 transition">
+                <button type="button" @click="addFieldModal = false" class="px-4 py-2 rounded-lg bg-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-300 transition">
                     Cancel
                 </button>
             </div>
-        </div>
+        </section>
     </div>
 
     <!-- Modal: Create New Collection Type -->
@@ -285,48 +285,38 @@
         x-cloak
         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
         @keydown.escape.window="newTypeModal = false"
+        @click.self="newTypeModal = false"
     >
-        <div
-            @click.outside="newTypeModal = false"
+        <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="new-collection-title"
             class="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-[#eaeaef] overflow-hidden"
         >
             <div class="p-5 border-b border-[#eaeaef] flex items-center justify-between bg-[#fafafc]">
                 <div>
-                    <h3 class="font-sans font-semibold text-base text-[#32324d]">Create a Collection Type</h3>
-                    <p class="text-xs text-[#8e8ea9]">Buat jenis entitas konten baru di Infoscreening CMS.</p>
+                    <h3 id="new-collection-title" class="font-sans font-semibold text-base text-[#32324d]">Create a Collection Type</h3>
+                    <p class="text-xs text-[#8e8ea9]">Status fitur pembuatan koleksi konten.</p>
                 </div>
-                <button @click="newTypeModal = false" class="text-slate-400 hover:text-slate-700 p-1">
+                <button type="button" @click="newTypeModal = false" aria-label="Tutup dialog koleksi" class="text-slate-400 hover:text-slate-700 p-1">
                     <i class="fas fa-times text-sm"></i>
                 </button>
             </div>
 
-            <div class="p-6 space-y-4 text-xs">
-                <div>
-                    <label class="block font-medium text-[#32324d] mb-1">Display Name</label>
-                    <input type="text" placeholder="e.g. Festival Film, Sponsor, Press Release" class="w-full px-3 py-2 rounded-lg border border-[#eaeaef] focus:border-[#4945ff] focus:ring-1 focus:ring-[#4945ff] text-xs">
-                    <span class="text-[10px] text-[#8e8ea9] mt-0.5 block">Nama tampilan di Content Manager.</span>
-                </div>
-
-                <div>
-                    <label class="block font-medium text-[#32324d] mb-1">API ID (Singular)</label>
-                    <input type="text" placeholder="e.g. sponsor" class="w-full px-3 py-2 rounded-lg border border-[#eaeaef] focus:border-[#4945ff] focus:ring-1 focus:ring-[#4945ff] text-xs">
-                </div>
-
-                <div>
-                    <label class="block font-medium text-[#32324d] mb-1">API ID (Plural)</label>
-                    <input type="text" placeholder="e.g. sponsors" class="w-full px-3 py-2 rounded-lg border border-[#eaeaef] focus:border-[#4945ff] focus:ring-1 focus:ring-[#4945ff] text-xs">
+            <div class="p-6">
+                <div class="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">
+                    <i class="fas fa-circle-info mt-0.5" aria-hidden="true"></i>
+                    <p class="leading-6">Pembuatan koleksi baru belum tersedia dari panel ini. Skema baru perlu dibuat melalui model, migration, dan controller Laravel.</p>
                 </div>
             </div>
 
             <div class="p-4 bg-[#fafafc] border-t border-[#eaeaef] flex items-center justify-end gap-2">
-                <button @click="newTypeModal = false" class="px-4 py-2 rounded-lg bg-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-300 transition">
+                <button type="button" @click="newTypeModal = false" class="px-4 py-2 rounded-lg bg-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-300 transition">
                     Cancel
                 </button>
-                <button @click="alert('Koleksi konten siap dibuat! Skema disinkronkan dengan migration Laravel.'); newTypeModal = false;" class="px-4 py-2 rounded-lg bg-[#4945ff] hover:bg-[#3b37eb] text-white text-xs font-medium transition shadow-sm">
-                    Continue &rarr;
-                </button>
             </div>
-        </div>
+        </section>
+    </div>
     </div>
 
 </div>

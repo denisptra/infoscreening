@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
@@ -13,7 +14,7 @@ class SettingsController extends Controller
 {
     public function index(): View
     {
-        $users = User::all();
+        $users = User::query()->orderBy('name')->get();
 
         $apiTokens = session('strapi_api_tokens', [
             [
@@ -55,9 +56,14 @@ class SettingsController extends Controller
 
         return view('admin.settings.index', [
             'users' => $users,
+            'roles' => UserRole::cases(),
             'apiTokens' => $apiTokens,
             'webhooks' => $webhooks,
             'activeTab' => request('tab', 'general'),
+            'databaseDriver' => config(
+                'database.connections.'.config('database.default').'.driver',
+                config('database.default')
+            ),
         ]);
     }
 
@@ -86,5 +92,30 @@ class SettingsController extends Controller
 
         return redirect()->route('strapi.settings.index', ['tab' => 'tokens'])
             ->with('status', 'API Token berhasil dibuat! Simpan token ini dengan aman.');
+    }
+
+    public function updateUserRole(Request $request, User $user): RedirectResponse
+    {
+        $validated = $request->validate([
+            'role' => ['required', 'in:super_admin,admin,editor,member'],
+        ]);
+
+        $newRole = UserRole::from($validated['role']);
+        $superAdminCount = User::where('role', UserRole::SuperAdmin->value)->count();
+
+        if ($user->isSuperAdmin() && $newRole !== UserRole::SuperAdmin && $superAdminCount <= 1) {
+            return back()
+                ->withInput()
+                ->withErrors(['role' => 'Minimal harus ada satu akun Super Admin aktif.']);
+        }
+
+        $user->forceFill([
+            'role' => $newRole,
+            'is_admin' => in_array($newRole, [UserRole::SuperAdmin, UserRole::Admin], true),
+        ])->save();
+
+        return redirect()
+            ->route('strapi.settings.index', ['tab' => 'users'])
+            ->with('status', 'Peran pengguna berhasil diperbarui.');
     }
 }

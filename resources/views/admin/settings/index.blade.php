@@ -3,7 +3,29 @@
 @section('page_title', 'Settings')
 
 @section('content')
-<div class="space-y-6" x-data="{ activeTab: '{{ $activeTab }}', tokenModal: false }">
+<div class="space-y-6" x-data="{
+    activeTab: @js($activeTab),
+    tokenModal: false,
+    tokenFormDirty: false,
+    requestTokenModalClose() {
+        if (! this.tokenFormDirty) {
+            this.tokenModal = false;
+            return;
+        }
+
+        window.dispatchEvent(new CustomEvent('app-confirm', {
+            detail: {
+                title: 'Tutup formulir token?',
+                message: 'Data token yang belum dibuat akan hilang.',
+                action: 'Buang perubahan',
+                onConfirm: () => {
+                    this.tokenModal = false;
+                    this.tokenFormDirty = false;
+                },
+            },
+        }));
+    },
+}">
 
     <!-- Top Header -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -13,12 +35,23 @@
                 <span>General / Settings</span>
             </div>
             <h1 class="font-sans font-semibold text-xl text-[#32324d] tracking-tight">Strapi CMS Settings</h1>
-            <p class="text-xs text-[#8e8ea9] font-normal">Konfigurasi hak akses per an, REST API tokens untuk integrasi headless, dan webhooks.</p>
+            <p class="text-xs text-[#8e8ea9] font-normal">Kelola akses tim redaksi dan integrasi situs.</p>
         </div>
 
-        <div>
+        <div class="flex items-center gap-2">
+            <form method="POST" action="{{ route('strapi.settings.clear-cache') }}" class="inline">
+                @csrf
+                <button
+                    type="submit"
+                    class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white hover:bg-gray-50 text-gray-700 text-xs font-medium border border-gray-300 shadow-sm transition"
+                    title="Bersihkan cache views, routes, dan konfigurasi"
+                >
+                    <i class="fas fa-broom text-[10px] text-gray-500"></i>
+                    <span>Bersihkan Cache</span>
+                </button>
+            </form>
             <button
-                @click="tokenModal = true"
+                @click="tokenFormDirty = false; tokenModal = true"
                 class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#4945ff] hover:bg-[#3b37eb] text-white text-xs font-medium shadow-sm transition"
             >
                 <i class="fas fa-key text-[10px]"></i>
@@ -129,7 +162,7 @@
                             <span class="text-[#8e8ea9] text-[11px]">Database Engine</span>
                             <div class="font-semibold text-sm text-[#32324d] flex items-center gap-2">
                                 <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                                <span>SQLite Local Driver</span>
+                                <span>{{ strtoupper($databaseDriver) }}</span>
                             </div>
                         </div>
 
@@ -151,66 +184,31 @@
                     </div>
 
                     <div class="border-t border-[#eaeaef] pt-4 flex items-center justify-between text-xs text-[#8e8ea9]">
-                        <span>Environment: <strong>Local Development</strong></span>
-                        <span>Debugging: <strong>Active</strong></span>
+                        <span>Environment: <strong>{{ app()->environment() }}</strong></span>
+                        <span>Debugging: <strong>{{ config('app.debug') ? 'Active' : 'Off' }}</strong></span>
                     </div>
                 </div>
             </div>
 
             <!-- TAB 2: ROLES & PERMISSIONS -->
             <div x-show="activeTab === 'roles'" class="space-y-6" x-cloak>
-                <div class="bg-white rounded-xl border border-[#eaeaef] shadow-strapi overflow-hidden">
-                    <div class="p-5 border-b border-[#eaeaef] flex items-center justify-between bg-[#fafafc]">
-                        <div>
-                            <h3 class="font-sans font-semibold text-base text-[#32324d]">Permissions Matrix</h3>
-                            <p class="text-xs text-[#8e8ea9]">Hak akses untuk role Super Admin, Editor, dan Publik.</p>
-                        </div>
-                        <span class="px-2.5 py-1 rounded bg-[#f0ebfc] text-[#4945ff] text-xs font-semibold">
-                            Role: Super Admin
-                        </span>
-                    </div>
-
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-xs">
-                            <thead class="bg-[#f6f6f9] text-[#666687] font-semibold text-[11px] uppercase tracking-wider border-b border-[#eaeaef]">
-                                <tr>
-                                    <th class="p-3.5 pl-5">Collection Type</th>
-                                    <th class="p-3.5 text-center">Create</th>
-                                    <th class="p-3.5 text-center">Read</th>
-                                    <th class="p-3.5 text-center">Update</th>
-                                    <th class="p-3.5 text-center">Delete</th>
-                                    <th class="p-3.5 text-center">Publish</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-[#eaeaef]">
-                                @php
-                                    $collections = ['Articles', 'Categories', 'Tags', 'Events', 'Experts', 'Products', 'Media Assets', 'Submissions'];
-                                @endphp
-                                @foreach ($collections as $col)
-                                    <tr class="hover:bg-[#fafafc]">
-                                        <td class="p-3.5 pl-5 font-medium text-[#32324d]">
-                                            {{ $col }}
-                                        </td>
-                                        <td class="p-3.5 text-center">
-                                            <input type="checkbox" checked disabled class="rounded text-[#4945ff] focus:ring-0">
-                                        </td>
-                                        <td class="p-3.5 text-center">
-                                            <input type="checkbox" checked disabled class="rounded text-[#4945ff] focus:ring-0">
-                                        </td>
-                                        <td class="p-3.5 text-center">
-                                            <input type="checkbox" checked disabled class="rounded text-[#4945ff] focus:ring-0">
-                                        </td>
-                                        <td class="p-3.5 text-center">
-                                            <input type="checkbox" checked disabled class="rounded text-[#4945ff] focus:ring-0">
-                                        </td>
-                                        <td class="p-3.5 text-center">
-                                            <input type="checkbox" checked disabled class="rounded text-[#4945ff] focus:ring-0">
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
+                <div class="space-y-3">
+                    <article class="rounded-xl border border-[#eaeaef] bg-white p-5">
+                        <h3 class="text-sm font-semibold text-[#32324d]">Super Admin</h3>
+                        <p class="mt-1 text-xs leading-relaxed text-[#666687]">Akses penuh ke seluruh konten, akun dan peran, pengaturan CMS, menu, dropdown, serta footer.</p>
+                    </article>
+                    <article class="rounded-xl border border-[#eaeaef] bg-white p-5">
+                        <h3 class="text-sm font-semibold text-[#32324d]">Admin</h3>
+                        <p class="mt-1 text-xs leading-relaxed text-[#666687]">Membuat, mengedit, dan menerbitkan artikel. Tidak dapat mengubah akun, menu, footer, kategori, event, atau pengaturan situs.</p>
+                    </article>
+                    <article class="rounded-xl border border-[#eaeaef] bg-white p-5">
+                        <h3 class="text-sm font-semibold text-[#32324d]">Editor</h3>
+                        <p class="mt-1 text-xs leading-relaxed text-[#666687]">Menulis dan mengedit draf miliknya sendiri, melihat hanya artikelnya sendiri, serta tidak dapat menerbitkan, menjadwalkan, atau memilih artikel unggulan.</p>
+                    </article>
+                    <article class="rounded-xl border border-[#eaeaef] bg-white p-5">
+                        <h3 class="text-sm font-semibold text-[#32324d]">Pembaca</h3>
+                        <p class="mt-1 text-xs leading-relaxed text-[#666687]">Menggunakan halaman publik dan mengirim kontribusi; tidak dapat masuk ke panel CMS.</p>
+                    </article>
                 </div>
             </div>
 
@@ -220,7 +218,7 @@
                     <div class="p-5 border-b border-[#eaeaef] flex items-center justify-between bg-[#fafafc]">
                         <div>
                             <h3 class="font-sans font-semibold text-base text-[#32324d]">Administrator Users</h3>
-                            <p class="text-xs text-[#8e8ea9]">Daftar pengguna yang memiliki akses ke dashboard CMS.</p>
+                            <p class="text-xs text-[#8e8ea9]">Atur siapa yang dapat mengelola konten dan situs. Hanya Super Admin yang dapat mengubah peran.</p>
                         </div>
                     </div>
 
@@ -237,10 +235,22 @@
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                        Super Admin
-                                    </span>
+                                    <form method="POST" action="{{ route('strapi.settings.users.role', $user) }}" class="flex items-center gap-2">
+                                        @csrf
+                                        @method('PATCH')
+                                        <select name="role" class="rounded-md border border-[#dcdce4] px-2 py-1 text-[11px] text-[#32324d]">
+                                            @foreach ($roles as $role)
+                                                <option value="{{ $role->value }}" @selected($user->role === $role)>{{ $role->label() }}</option>
+                                            @endforeach
+                                        </select>
+                                        <button type="submit" class="rounded-md bg-[#4945ff] px-3 py-1.5 text-[11px] font-medium text-white hover:bg-[#3b37eb]">
+                                            Simpan
+                                        </button>
+                                    </form>
                                 </div>
+                                @error('role')
+                                    <p class="mt-2 text-[11px] text-red-600">{{ $message }}</p>
+                                @enderror
                             </div>
                         @endforeach
                     </div>
@@ -256,7 +266,7 @@
                             <p class="text-xs text-[#8e8ea9]">Token API otentikasi untuk REST API dan integrasi frontend headless.</p>
                         </div>
                         <button
-                            @click="tokenModal = true"
+                            @click="tokenFormDirty = false; tokenModal = true"
                             class="px-3 py-1.5 rounded-lg bg-[#4945ff] text-white text-xs font-medium hover:bg-[#3b37eb] transition"
                         >
                             <i class="fas fa-plus text-[10px] mr-1"></i> Add Token
@@ -282,7 +292,7 @@
                                     </div>
                                     <button
                                         type="button"
-                                        @click="navigator.clipboard.writeText('{{ $tok['token'] }}'); alert('API Token disalin ke clipboard!');"
+                                        @click="$dispatch('app-copy', { text: @js($tok['token']), label: 'API Token' })"
                                         class="text-xs text-[#4945ff] hover:underline font-medium"
                                     >
                                         Copy
@@ -300,7 +310,7 @@
                     <div class="p-5 border-b border-[#eaeaef] flex items-center justify-between bg-[#fafafc]">
                         <div>
                             <h3 class="font-sans font-semibold text-base text-[#32324d]">Webhooks</h3>
-                            <p class="text-xs text-[#8e8ea9]">Trigger notifikasi otomatis saat konten dipublikasikan atau diupdate.</p>
+                            <p class="text-xs text-[#8e8ea9]">Contoh endpoint saja; pengiriman webhook belum dikonfigurasi.</p>
                         </div>
                     </div>
 
@@ -310,16 +320,17 @@
                                 <div class="flex items-center justify-between">
                                     <div class="flex items-center gap-2">
                                         <span class="font-medium text-xs text-[#32324d]">{{ $wh['name'] }}</span>
-                                        <span class="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active
+                                        <span class="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Belum terhubung
                                         </span>
                                     </div>
                                     <button
                                         type="button"
-                                        @click="alert('Trigger test terkirim ke: ' + '{{ $wh['url'] }}')"
-                                        class="px-2.5 py-1 rounded border border-[#eaeaef] hover:border-[#4945ff] text-[11px] text-[#4945ff] font-medium"
+                                    disabled
+                                    title="Pengiriman webhook belum tersedia"
+                                    class="cursor-not-allowed rounded border border-[#eaeaef] px-2.5 py-1 text-[11px] font-medium text-[#8e8ea9]"
                                     >
-                                        Trigger Test
+                                    Uji belum tersedia
                                     </button>
                                 </div>
                                 <div class="font-mono text-[11px] text-[#8e8ea9] truncate">{{ $wh['url'] }}</div>
@@ -345,20 +356,23 @@
         x-show="tokenModal"
         x-cloak
         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
-        @keydown.escape.window="tokenModal = false"
+        @click.self="requestTokenModalClose()"
+        @keydown.escape.window="requestTokenModalClose()"
     >
-        <div
-            @click.outside="tokenModal = false"
+        <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-token-title"
             class="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-[#eaeaef] overflow-hidden"
         >
-            <form method="POST" action="{{ route('strapi.settings.tokens.create') }}">
+            <form method="POST" action="{{ route('strapi.settings.tokens.create') }}" @input="tokenFormDirty = true">
                 @csrf
                 <div class="p-5 border-b border-[#eaeaef] flex items-center justify-between bg-[#fafafc]">
                     <div>
-                        <h3 class="font-sans font-semibold text-base text-[#32324d]">Create API Token</h3>
+                        <h3 id="create-token-title" class="font-sans font-semibold text-base text-[#32324d]">Create API Token</h3>
                         <p class="text-xs text-[#8e8ea9]">Generate token baru untuk akses Strapi API.</p>
                     </div>
-                    <button type="button" @click="tokenModal = false" class="text-slate-400 hover:text-slate-700 p-1">
+                    <button type="button" @click="requestTokenModalClose()" aria-label="Tutup formulir token" class="text-slate-400 hover:text-slate-700 p-1">
                         <i class="fas fa-times text-sm"></i>
                     </button>
                 </div>
@@ -385,13 +399,13 @@
                 </div>
 
                 <div class="p-4 bg-[#fafafc] border-t border-[#eaeaef] flex items-center justify-end gap-2">
-                    <button type="button" @click="tokenModal = false" class="px-4 py-2 rounded-lg bg-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-300 transition">
+                    <button type="button" @click="requestTokenModalClose()" class="px-4 py-2 rounded-lg bg-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-300 transition">
                         Cancel
                     </button>
                     <button type="submit" class="px-4 py-2 rounded-lg bg-[#4945ff] hover:bg-[#3b37eb] text-white text-xs font-medium transition shadow-sm">
                         Create Token &rarr;
                     </button>
-                </div>
+                </section>
             </form>
         </div>
     </div>

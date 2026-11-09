@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>@yield('page_title', 'Dashboard') - Infoscreening Strapi CMS</title>
+    <title>@yield('page_title', 'Dashboard') - Infoscreening CMS</title>
 
     <!-- Tab Favicon (Emblem) -->
     <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon.png') }}">
@@ -36,19 +36,22 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 @php
-    $sidebarCounts = \Illuminate\Support\Facades\Cache::remember('admin.sidebar.counts', now()->addMinute(), fn () => [
-        'pending' => \App\Models\Contribution::where('status', 'pending')->count(),
-        'articles' => \App\Models\Article::count(),
-        'categories' => \App\Models\Category::count(),
-        'tags' => \App\Models\Tag::count(),
-        'events' => \App\Models\Event::count(),
-        'experts' => \App\Models\Expert::count(),
-        'products' => \App\Models\Product::count(),
-        'media' => \App\Models\Media::count(),
+    $currentUser = auth()->user();
+    $sidebarCounts = \Illuminate\Support\Facades\Cache::remember('admin.sidebar.counts.'.$currentUser->id, now()->addMinute(), fn () => [
+        'pending' => in_array($currentUser->role, [\App\Enums\UserRole::SuperAdmin, \App\Enums\UserRole::Admin], true) ? \App\Models\Contribution::where('status', 'pending')->count() : 0,
+        'articles' => \App\Models\Article::query()
+            ->when($currentUser->isEditor(), fn ($query) => $query->where('user_id', $currentUser->id))
+            ->count(),
+        'categories' => in_array($currentUser->role, [\App\Enums\UserRole::SuperAdmin, \App\Enums\UserRole::Admin], true) ? \App\Models\Category::count() : 0,
+        'tags' => in_array($currentUser->role, [\App\Enums\UserRole::SuperAdmin, \App\Enums\UserRole::Admin], true) ? \App\Models\Tag::count() : 0,
+        'events' => in_array($currentUser->role, [\App\Enums\UserRole::SuperAdmin, \App\Enums\UserRole::Admin], true) ? \App\Models\Event::count() : 0,
+        'experts' => in_array($currentUser->role, [\App\Enums\UserRole::SuperAdmin, \App\Enums\UserRole::Admin], true) ? \App\Models\Expert::count() : 0,
+        'products' => in_array($currentUser->role, [\App\Enums\UserRole::SuperAdmin, \App\Enums\UserRole::Admin], true) ? \App\Models\Product::count() : 0,
+        'media' => in_array($currentUser->role, [\App\Enums\UserRole::SuperAdmin, \App\Enums\UserRole::Admin], true) ? \App\Models\Media::count() : 0,
     ]);
 @endphp
 
-<body class="bg-[#f6f6f9] text-[#32324d] font-sans antialiased min-h-screen flex" x-data="{ sidebarOpen: false }">
+<body class="bg-[#f6f6f9] text-[#32324d] font-sans antialiased min-h-screen flex" x-data="{ sidebarOpen: false, notificationsOpen: false }">
 
     <!-- Mobile Overlay Backdrop -->
     <div
@@ -61,7 +64,7 @@
     <!-- Strapi Iconic Dark Sidebar (#212134) -->
     <aside
         :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
-        class="fixed inset-y-0 left-0 z-50 w-64 bg-[#212134] text-[#c0c0cf] flex flex-col justify-between transition-transform duration-200 lg:static lg:translate-x-0 border-r border-[#181826] select-none"
+        class="fixed inset-y-0 left-0 z-50 w-64 bg-[#212134] text-[#c0c0cf] flex flex-col justify-between transition-transform duration-200 lg:translate-x-0 border-r border-[#181826] select-none"
     >
         <div class="flex-1 overflow-y-auto">
             <!-- Strapi Header Brand with Transparent Emblem -->
@@ -74,7 +77,7 @@
                     >
                     <div class="flex flex-col min-w-0">
                         <span class="font-medium text-xs text-white leading-tight truncate">INFOSCREENING</span>
-                        <span class="text-[10px] text-[#8e8ea9] tracking-wider uppercase">Strapi CMS</span>
+                        <span class="text-[10px] text-[#8e8ea9] tracking-wider uppercase">Panel Editorial</span>
                     </div>
                 </a>
                 <button @click="sidebarOpen = false" class="lg:hidden text-[#8e8ea9] hover:text-white p-1">
@@ -98,19 +101,18 @@
                         <span>Dashboard</span>
                     </a>
 
-                    <a
-                        href="{{ route('strapi.contributions.index') }}"
-                        class="strapi-sidebar-item {{ request()->routeIs('strapi.contributions.*') ? 'active' : '' }}"
-                    >
-                        <i class="fas fa-inbox text-[#8e8ea9] w-4 text-center"></i>
-                        <span>Submissions Inbox</span>
-                        @php
-                            $pendingCount = $sidebarCounts['pending'];
-                        @endphp
-                        @if ($pendingCount > 0)
-                            <span class="strapi-badge-count">{{ $pendingCount }}</span>
-                        @endif
-                    </a>
+                    @if (! auth()->user()->isEditor())
+                        <a
+                            href="{{ route('strapi.contributions.index') }}"
+                            class="strapi-sidebar-item {{ request()->routeIs('strapi.contributions.*') ? 'active' : '' }}"
+                        >
+                            <i class="fas fa-inbox text-[#8e8ea9] w-4 text-center"></i>
+                            <span>Submissions Inbox</span>
+                            @if ($sidebarCounts['pending'] > 0)
+                                <span class="strapi-badge-count">{{ $sidebarCounts['pending'] }}</span>
+                            @endif
+                        </a>
+                    @endif
                 </div>
 
                 <!-- Section: CONTENT MANAGER (Collection Types) -->
@@ -129,64 +131,69 @@
                         <span class="text-[10px] text-[#8e8ea9] ml-auto font-normal">{{ $sidebarCounts['articles'] }}</span>
                     </a>
 
-                    <a
-                        href="{{ route('strapi.categories.index') }}"
-                        class="strapi-sidebar-item {{ request()->routeIs('strapi.categories.*') ? 'active' : '' }}"
-                    >
-                        <i class="fas fa-folder text-[#8e8ea9] w-4 text-center"></i>
-                        <span>Categories</span>
-                        <span class="text-[10px] text-[#8e8ea9] ml-auto font-normal">{{ $sidebarCounts['categories'] }}</span>
-                    </a>
+                    @if (! auth()->user()->isEditor())
+                        <a
+                            href="{{ route('strapi.categories.index') }}"
+                            class="strapi-sidebar-item {{ request()->routeIs('strapi.categories.*') ? 'active' : '' }}"
+                        >
+                            <i class="fas fa-folder text-[#8e8ea9] w-4 text-center"></i>
+                            <span>Categories</span>
+                            <span class="text-[10px] text-[#8e8ea9] ml-auto font-normal">{{ $sidebarCounts['categories'] }}</span>
+                        </a>
 
-                    <a
-                        href="{{ route('strapi.tags.index') }}"
-                        class="strapi-sidebar-item {{ request()->routeIs('strapi.tags.*') ? 'active' : '' }}"
-                    >
-                        <i class="fas fa-tag text-[#8e8ea9] w-4 text-center"></i>
-                        <span>Tags</span>
-                        <span class="text-[10px] text-[#8e8ea9] ml-auto font-normal">{{ $sidebarCounts['tags'] }}</span>
-                    </a>
+                        <a
+                            href="{{ route('strapi.tags.index') }}"
+                            class="strapi-sidebar-item {{ request()->routeIs('strapi.tags.*') ? 'active' : '' }}"
+                        >
+                            <i class="fas fa-tag text-[#8e8ea9] w-4 text-center"></i>
+                            <span>Tags</span>
+                            <span class="text-[10px] text-[#8e8ea9] ml-auto font-normal">{{ $sidebarCounts['tags'] }}</span>
+                        </a>
 
-                    <a
-                        href="{{ route('strapi.events.index') }}"
-                        class="strapi-sidebar-item {{ request()->routeIs('strapi.events.*') ? 'active' : '' }}"
-                    >
-                        <i class="far fa-calendar-alt text-[#8e8ea9] w-4 text-center"></i>
-                        <span>Calendar Events</span>
-                        <span class="text-[10px] text-[#8e8ea9] ml-auto font-normal">{{ $sidebarCounts['events'] }}</span>
-                    </a>
+                        <a
+                            href="{{ route('strapi.events.index') }}"
+                            class="strapi-sidebar-item {{ request()->routeIs('strapi.events.*') ? 'active' : '' }}"
+                        >
+                            <i class="far fa-calendar-alt text-[#8e8ea9] w-4 text-center"></i>
+                            <span>Calendar Events</span>
+                            <span class="text-[10px] text-[#8e8ea9] ml-auto font-normal">{{ $sidebarCounts['events'] }}</span>
+                        </a>
 
-                    <a
-                        href="{{ route('strapi.experts.index') }}"
-                        class="strapi-sidebar-item {{ request()->routeIs('strapi.experts.*') ? 'active' : '' }}"
-                    >
-                        <i class="fas fa-user-tie text-[#8e8ea9] w-4 text-center"></i>
-                        <span>Experts (Rupa Jasa)</span>
-                        <span class="text-[10px] text-[#8e8ea9] ml-auto font-normal">{{ $sidebarCounts['experts'] }}</span>
-                    </a>
+                        <a
+                            href="{{ route('strapi.experts.index') }}"
+                            class="strapi-sidebar-item {{ request()->routeIs('strapi.experts.*') ? 'active' : '' }}"
+                        >
+                            <i class="fas fa-user-tie text-[#8e8ea9] w-4 text-center"></i>
+                            <span>Experts (Rupa Jasa)</span>
+                            <span class="text-[10px] text-[#8e8ea9] ml-auto font-normal">{{ $sidebarCounts['experts'] }}</span>
+                        </a>
 
-                    <a
-                        href="{{ route('strapi.products.index') }}"
-                        class="strapi-sidebar-item {{ request()->routeIs('strapi.products.*') ? 'active' : '' }}"
-                    >
-                        <i class="fas fa-bag-shopping text-[#8e8ea9] w-4 text-center"></i>
-                        <span>Shop Products</span>
-                        <span class="text-[10px] text-[#8e8ea9] ml-auto font-normal">{{ $sidebarCounts['products'] }}</span>
-                    </a>
+                        <a
+                            href="{{ route('strapi.products.index') }}"
+                            class="strapi-sidebar-item {{ request()->routeIs('strapi.products.*') ? 'active' : '' }}"
+                        >
+                            <i class="fas fa-bag-shopping text-[#8e8ea9] w-4 text-center"></i>
+                            <span>Shop Products</span>
+                            <span class="text-[10px] text-[#8e8ea9] ml-auto font-normal">{{ $sidebarCounts['products'] }}</span>
+                        </a>
+                    @endif
                 </div>
 
                 <!-- Section: PLUGINS & TOOLS -->
-                <div class="space-y-1">
+                @if (! auth()->user()->isEditor())
+                    <div class="space-y-1">
                     <div class="px-3 pb-1 text-[10px] font-semibold text-[#8e8ea9] tracking-wider uppercase">
                         Plugins
                     </div>
-                    <a
-                        href="{{ route('strapi.content-types.index') }}"
-                        class="strapi-sidebar-item {{ request()->routeIs('strapi.content-types.*') ? 'active' : '' }}"
-                    >
-                        <i class="fas fa-cubes text-[#8e8ea9] w-4 text-center"></i>
-                        <span>Content-Type Builder</span>
-                    </a>
+                    @if (auth()->user()->isSuperAdmin())
+                        <a
+                            href="{{ route('strapi.content-types.index') }}"
+                            class="strapi-sidebar-item {{ request()->routeIs('strapi.content-types.*') ? 'active' : '' }}"
+                        >
+                            <i class="fas fa-cubes text-[#8e8ea9] w-4 text-center"></i>
+                            <span>Content-Type Builder</span>
+                        </a>
+                    @endif
                     <a
                         href="{{ route('strapi.media.index') }}"
                         class="strapi-sidebar-item {{ request()->routeIs('strapi.media.*') ? 'active' : '' }}"
@@ -195,20 +202,31 @@
                         <span>Media Library</span>
                         <span class="text-[10px] text-[#8e8ea9] ml-auto font-normal">{{ $sidebarCounts['media'] }}</span>
                     </a>
-                </div>
+                    </div>
+                @endif
 
-                <!-- Section: SETTINGS -->
-                <div class="space-y-1">
+                <!-- Section: SETTINGS & APPEARANCE -->
+                @if (auth()->user()->isSuperAdmin() || auth()->user()->isEditorialAdmin())
+                    <div class="space-y-1">
                     <div class="px-3 pb-1 text-[10px] font-semibold text-[#8e8ea9] tracking-wider uppercase">
-                        General Settings
+                        Tampilan &amp; Pengaturan
                     </div>
                     <a
-                        href="{{ route('strapi.settings.index') }}"
-                        class="strapi-sidebar-item {{ request()->routeIs('strapi.settings.*') ? 'active' : '' }}"
+                        href="{{ route('strapi.navigation.index') }}"
+                        class="strapi-sidebar-item {{ request()->routeIs('strapi.navigation.*', 'strapi.appearance.*') ? 'active' : '' }}"
                     >
-                        <i class="fas fa-gear text-[#8e8ea9] w-4 text-center"></i>
-                        <span>Settings &amp; API</span>
+                        <i class="fas fa-bars-staggered text-[#8e8ea9] w-4 text-center"></i>
+                        <span>Navigasi &amp; Footer</span>
                     </a>
+                    @if (auth()->user()->isSuperAdmin())
+                        <a
+                            href="{{ route('strapi.settings.index') }}"
+                            class="strapi-sidebar-item {{ request()->routeIs('strapi.settings.*') ? 'active' : '' }}"
+                        >
+                            <i class="fas fa-gear text-[#8e8ea9] w-4 text-center"></i>
+                            <span>Settings &amp; API</span>
+                        </a>
+                    @endif
                     <a
                         href="{{ route('home') }}"
                         target="_blank"
@@ -218,6 +236,7 @@
                         <span>Live Portal View</span>
                     </a>
                 </div>
+                @endif
 
             </nav>
         </div>
@@ -231,7 +250,7 @@
                     </div>
                     <div class="flex flex-col min-w-0">
                         <span class="text-xs font-medium text-white truncate">{{ auth()->user()->name ?? 'Administrator' }}</span>
-                        <span class="text-[10px] text-[#8e8ea9]">Super Admin</span>
+                        <span class="text-[10px] text-[#8e8ea9]">{{ auth()->user()->role->label() }}</span>
                     </div>
                 </div>
 
@@ -246,10 +265,10 @@
     </aside>
 
     <!-- Main Strapi Content Area -->
-    <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+    <div class="flex-1 flex flex-col min-w-0 lg:ml-64">
 
         <!-- Strapi Clean White Top Header Bar -->
-        <header class="h-16 bg-white border-b border-[#eaeaef] flex items-center justify-between px-6 sticky top-0 z-30 shadow-[0_1px_4px_rgba(33,33,52,0.04)]">
+        <header class="fixed top-0 right-0 left-0 lg:left-64 z-30 h-16 bg-white border-b border-[#eaeaef] flex items-center justify-between px-4 sm:px-6 shadow-[0_1px_4px_rgba(33,33,52,0.04)]">
             <!-- Left: Breadcrumb / Page Title -->
             <div class="flex items-center gap-3">
                 <button @click="sidebarOpen = true" class="lg:hidden p-1.5 text-slate-500 hover:text-slate-800">
@@ -278,10 +297,74 @@
 
                 <div class="h-5 w-px bg-[#eaeaef] hidden sm:block"></div>
 
-                <!-- Notifications icon -->
-                <div class="relative text-[#666687] hover:text-[#32324d] cursor-pointer p-1.5">
-                    <i class="far fa-bell text-sm"></i>
-                    <span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#4945ff]"></span>
+                <div class="relative" @keydown.escape.window="notificationsOpen = false" @click.outside="notificationsOpen = false">
+                    <button
+                        type="button"
+                        @click="notificationsOpen = !notificationsOpen"
+                        :aria-expanded="notificationsOpen.toString()"
+                        aria-controls="admin-notifications-panel"
+                        aria-label="Buka notifikasi"
+                        class="relative p-2 text-[#666687] hover:text-[#32324d] rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4945ff]"
+                    >
+                        <i class="far fa-bell text-sm" aria-hidden="true"></i>
+                        @if ($notificationCount > 0)
+                            <span class="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-[#4945ff] text-white text-[9px] leading-4 text-center font-semibold">
+                                {{ $notificationCount > 9 ? '9+' : $notificationCount }}
+                            </span>
+                        @endif
+                    </button>
+
+                    <section
+                        id="admin-notifications-panel"
+                        x-show="notificationsOpen"
+                        x-cloak
+                        x-transition.origin.top.right
+                        class="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-[#eaeaef] bg-white shadow-xl"
+                        aria-label="Notifikasi"
+                    >
+                        <div class="flex items-start justify-between gap-3 border-b border-[#eaeaef] px-4 py-3">
+                            <div>
+                                <h2 class="text-sm font-semibold text-[#32324d]">Notifikasi</h2>
+                                <p class="mt-0.5 text-xs text-[#8e8ea9]">Hal yang perlu ditinjau</p>
+                            </div>
+                            @if ($notificationCount > 0)
+                                <span class="rounded-full bg-[#f0ebfc] px-2 py-1 text-[10px] font-medium text-[#4945ff]">
+                                    {{ $notificationCount }} tugas
+                                </span>
+                            @endif
+                        </div>
+
+                        @if ($notifications->isNotEmpty())
+                            <ul class="max-h-[60vh] overflow-y-auto divide-y divide-[#f0f0f4]">
+                                @foreach ($notifications as $notification)
+                                    <li>
+                                        <a
+                                            href="{{ $notification['url'] }}"
+                                            @click="notificationsOpen = false"
+                                            class="flex gap-3 px-4 py-3 hover:bg-[#f8f7fc] focus-visible:outline-none focus-visible:bg-[#f8f7fc]"
+                                        >
+                                            <span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#f0ebfc] text-[#4945ff]">
+                                                <i class="far fa-bell text-xs" aria-hidden="true"></i>
+                                            </span>
+                                            <span class="min-w-0">
+                                                <span class="block text-xs font-medium text-[#32324d]">{{ $notification['title'] }}</span>
+                                                <span class="mt-1 block truncate text-xs text-[#666687]">{{ $notification['description'] }}</span>
+                                                <span class="mt-1 block text-[10px] text-[#8e8ea9]">{{ $notification['createdAt']->diffForHumans() }}</span>
+                                            </span>
+                                        </a>
+                                    </li>
+                                @endforeach
+                            </ul>
+                            <a
+                                href="{{ $notificationUrl }}"
+                                class="block border-t border-[#eaeaef] px-4 py-2.5 text-center text-xs font-medium text-[#4945ff] hover:bg-[#f8f7fc] focus-visible:outline-none focus-visible:bg-[#f8f7fc]"
+                            >
+                                Buka daftar
+                            </a>
+                        @else
+                            <p class="px-4 py-6 text-center text-xs text-[#666687]">{{ $emptyNotificationMessage }}</p>
+                        @endif
+                    </section>
                 </div>
 
                 <!-- Quick Profile Badge -->
@@ -294,7 +377,7 @@
         </header>
 
         <!-- Strapi Canvas Page Body -->
-        <main class="flex-1 p-6 sm:p-8 space-y-6 max-w-7xl w-full mx-auto">
+        <main class="flex-1 px-6 pb-6 pt-24 sm:px-8 sm:pb-8 sm:pt-24 space-y-6 max-w-7xl w-full mx-auto">
             @if (session('status'))
                 <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3.5 rounded-lg text-xs font-medium flex items-center justify-between shadow-xs">
                     <div class="flex items-center gap-2">
@@ -308,5 +391,6 @@
         </main>
     </div>
 
+    <x-ui-feedback />
 </body>
 </html>

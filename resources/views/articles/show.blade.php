@@ -38,9 +38,9 @@
         <div class="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 py-3 border-y border-slate-100 font-normal">
             <div class="flex items-center gap-2.5">
                 <div class="w-7 h-7 rounded-full bg-[#3A07BB] text-white flex items-center justify-center font-medium text-xs">
-                    {{ substr($article->author->name ?? 'R', 0, 1) }}
+                    {{ substr($article->legacy_author_name ?: ($article->author->name ?? 'R'), 0, 1) }}
                 </div>
-                <span class="font-medium text-slate-700">{{ $article->author->name ?? 'Redaksi Infoscreening' }}</span>
+                <span class="font-medium text-slate-700">{{ $article->legacy_author_name ?: ($article->author->name ?? 'Redaksi Infoscreening') }}</span>
             </div>
 
             <div class="flex items-center gap-3 whitespace-nowrap text-slate-400">
@@ -73,8 +73,12 @@
         @endif
 
         <!-- Content Body (Inter Normal) -->
-        <div class="text-slate-700 text-sm sm:text-[15px] leading-relaxed space-y-4 font-normal">
-            {!! nl2br(e($article->content)) !!}
+        <div class="article-content text-slate-700 text-sm sm:text-[15px] leading-relaxed space-y-4 font-normal">
+            @if (strip_tags($article->content) !== $article->content)
+                {!! $article->content !!}
+            @else
+                {!! nl2br(e($article->content)) !!}
+            @endif
         </div>
 
         <!-- Tags -->

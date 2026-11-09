@@ -18,6 +18,7 @@ class Event extends Model
     public const TYPES = ['Festival', 'Pemutaran', 'Diskusi', 'Workshop', 'Pameran', 'Lainnya'];
 
     protected $fillable = [
+        'wordpress_source_id',
         'title',
         'slug',
         'type',

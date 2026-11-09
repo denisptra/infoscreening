@@ -302,13 +302,22 @@ function strapiAssetPicker(config) {
                     'X-Requested-With': 'XMLHttpRequest'
                 }
             })
-            .then(res => res.json())
+            .then(async (res) => {
+                if (!res.ok) {
+                    throw new Error('Permintaan galeri media gagal.');
+                }
+
+                return res.json();
+            })
             .then(data => {
                 this.libraryAssets = data.media || [];
                 this.loading = false;
             })
             .catch(() => {
                 this.loading = false;
+                window.dispatchEvent(new CustomEvent('app-toast', {
+                    detail: { type: 'error', message: 'Galeri media gagal dimuat. Coba buka kembali.' },
+                }));
             });
         },
 
@@ -349,19 +358,28 @@ function strapiAssetPicker(config) {
                 },
                 body: formData
             })
-            .then(res => res.json())
-            .then(data => {
-                this.uploading = false;
-                if (data.media) {
-                    this.currentValue = data.media.file_path;
-                    this.currentUrl = data.media.url;
-                    this.currentName = data.media.name;
-                    this.openModal = false;
+            .then(async (response) => {
+                const data = await response.json();
+
+                if (!response.ok || !data.media) {
+                    throw new Error(data.message || 'Upload gagal. Periksa file lalu coba lagi.');
                 }
+
+                return data;
             })
-            .catch(err => {
+            .then(data => {
+                this.currentValue = data.media.file_path;
+                this.currentUrl = data.media.url;
+                this.currentName = data.media.name;
+                this.openModal = false;
+            })
+            .catch((error) => {
+                window.dispatchEvent(new CustomEvent('app-toast', {
+                    detail: { type: 'error', message: error.message || 'Upload gagal. Periksa koneksi lalu coba lagi.' },
+                }));
+            })
+            .finally(() => {
                 this.uploading = false;
-                alert('Upload failed. Please try again.');
             });
         },
 

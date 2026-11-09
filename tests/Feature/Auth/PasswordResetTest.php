@@ -30,6 +30,21 @@ class PasswordResetTest extends TestCase
         Notification::assertSentTo($user, ResetPassword::class);
     }
 
+    public function test_reset_password_is_not_reported_as_sent_when_mailer_uses_log(): void
+    {
+        config(['mail.default' => 'log']);
+        $user = User::factory()->create();
+
+        $response = $this->post('/forgot-password', ['email' => $user->email]);
+
+        $response->assertSessionHasErrors('email');
+        $this->assertSame(
+            'Email reset belum dikirim karena MAIL_MAILER masih menggunakan log. Konfigurasikan SMTP pada environment aplikasi terlebih dahulu.',
+            session('errors')->getBag('default')->first('email')
+        );
+        $this->assertDatabaseMissing('password_reset_tokens', ['email' => $user->email]);
+    }
+
     public function test_reset_password_screen_can_be_rendered(): void
     {
         Notification::fake();

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -12,21 +13,27 @@ class SecurityHardeningTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_user_model_protects_is_admin_from_mass_assignment(): void
+    public function test_user_model_protects_role_and_admin_flag_from_mass_assignment(): void
     {
         $user = User::create([
             'name' => 'Attacker',
             'email' => 'attacker@example.com',
             'password' => 'secret123',
             'is_admin' => true,
+            'role' => UserRole::SuperAdmin->value,
         ]);
 
         $this->assertFalse((bool) $user->fresh()->is_admin, 'is_admin must not be mass-assignable on User creation.');
+        $this->assertSame(UserRole::Member, $user->fresh()->role);
 
-        $user->fill(['is_admin' => true]);
+        $user->fill([
+            'is_admin' => true,
+            'role' => UserRole::SuperAdmin->value,
+        ]);
         $user->save();
 
         $this->assertFalse((bool) $user->fresh()->is_admin, 'is_admin must not be mass-assignable via fill().');
+        $this->assertSame(UserRole::Member, $user->fresh()->role);
     }
 
     public function test_security_headers_are_present_on_all_responses(): void

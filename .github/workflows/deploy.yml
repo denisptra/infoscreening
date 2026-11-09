@@ -1,0 +1,86 @@
+name: Deploy to cPanel
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch: # Memungkinkan deploy manual dari tombol "Run workflow" di GitHub Actions
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy via FTPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # Butuh riwayat git untuk deteksi file yang berubah pada FTP
+
+      - name: 2. Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql, intl, fileinfo
+          coverage: none
+
+      - name: 3. Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 4. Install Composer Dependencies (Production)
+        run: |
+          composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader --no-progress
+
+      - name: 5. Build Frontend Assets (Vite)
+        run: |
+          npm ci
+          npm run build
+
+      - name: 6. Bersihkan Direktori Non-Produksi Sebelum Deploy
+        run: |
+          rm -rf node_modules
+          rm -rf tests
+          rm -rf .github
+          rm -rf deploy/cpanel/*.zip
+          rm -f *.sql
+          rm -rf import_per_table
+
+      - name: 7. Deploy ke cPanel via FTP / FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ secrets.FTP_SERVER_DIR || '/' }}
+          protocol: ${{ secrets.FTP_PROTOCOL || 'ftps' }}
+          port: ${{ secrets.FTP_PORT || 21 }}
+          # File dan folder yang TIDAK BOLEH ditimpa atau dihapus di cPanel
+          exclude: |
+            **/.git*
+            **/.git*/**
+            .env
+            .env.*
+            storage/app/**
+            storage/framework/cache/**
+            storage/framework/sessions/**
+            storage/framework/views/**
+            storage/logs/**
+            public/storage/**
+            database/*.sqlite
+            database/*.sql
+
+      - name: 8. Optional: Simpan Paket ZIP sebagai GitHub Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-build-${{ github.sha }}
+          path: |
+            ./
+          retention-days: 7

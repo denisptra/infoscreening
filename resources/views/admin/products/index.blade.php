@@ -61,7 +61,7 @@
                             <a href="{{ route('strapi.products.edit', $prod) }}" class="p-1 text-[#666687] hover:text-[#4945ff]" title="Edit Entry">
                                 <i class="far fa-edit"></i>
                             </a>
-                            <form method="POST" action="{{ route('strapi.products.destroy', $prod) }}" class="inline" onsubmit="return confirm('Delete this product?');">
+                            <form method="POST" action="{{ route('strapi.products.destroy', $prod) }}" class="inline" data-confirm data-confirm-title="Hapus produk?" data-confirm-message="Produk ini akan dihapus permanen." data-confirm-action="Hapus produk">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit" class="p-1 text-[#8e8ea9] hover:text-red-600" title="Delete">

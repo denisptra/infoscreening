@@ -125,7 +125,7 @@
                                 <a href="{{ route('articles.show', ['article' => $article]) }}" target="_blank" class="p-1 text-[#8e8ea9] hover:text-[#32324d]" title="View Live">
                                     <i class="fas fa-arrow-up-right-from-square text-[11px]"></i>
                                 </a>
-                                <form method="POST" action="{{ route('strapi.articles.destroy', $article) }}" class="inline" onsubmit="return confirm('Delete this entry?');">
+                                <form method="POST" action="{{ route('strapi.articles.destroy', $article) }}" class="inline" data-confirm data-confirm-title="Hapus artikel?" data-confirm-message="Artikel ini akan dihapus permanen dan tidak bisa dipulihkan." data-confirm-action="Hapus artikel">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="p-1 text-[#8e8ea9] hover:text-red-600" title="Delete">

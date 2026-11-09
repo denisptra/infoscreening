@@ -1,15 +1,21 @@
 [CmdletBinding()]
 param (
-    [string] $OutputPath = (Join-Path $PSScriptRoot 'infoscreening-cpanel.zip')
+    [string] $OutputPath = ''
 )
 
 $ErrorActionPreference = 'Stop'
 
+if ([string]::IsNullOrWhiteSpace($OutputPath)) {
+    $OutputPath = Join-Path $PSScriptRoot 'infoscreening-cpanel.zip'
+}
+
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $archivePath = [System.IO.Path]::GetFullPath($OutputPath)
 
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+
 if (Test-Path -LiteralPath $archivePath) {
-    throw "Output already exists; move or remove it before rebuilding: $archivePath"
+    Remove-Item -LiteralPath $archivePath -Force
 }
 
 $requiredFiles = @(
@@ -33,8 +39,11 @@ $publicBuildRoot = Join-Path $publicRoot 'build'
 try {
     New-Item -ItemType Directory -Path $releaseRoot, $publicRoot, $publicBuildRoot -Force | Out-Null
 
-    foreach ($file in @('artisan', 'composer.json', 'composer.lock')) {
-        Copy-Item -LiteralPath (Join-Path $projectRoot $file) -Destination $releaseRoot
+    foreach ($file in @('artisan', 'composer.json', 'composer.lock', '.htaccess', '.env.example')) {
+        $sourceFile = Join-Path $projectRoot $file
+        if (Test-Path -LiteralPath $sourceFile -PathType Leaf) {
+            Copy-Item -LiteralPath $sourceFile -Destination $releaseRoot
+        }
     }
 
     foreach ($directory in @('app', 'config', 'resources', 'routes')) {
@@ -57,7 +66,7 @@ try {
         Copy-Item -LiteralPath (Join-Path $projectRoot "database\$directory") -Destination $databaseDestination -Recurse
     }
 
-    foreach ($file in Get-ChildItem -LiteralPath (Join-Path $projectRoot 'public') -Force | Where-Object { $_.Name -notin @('storage', 'hot', 'build') }) {
+    foreach ($file in Get-ChildItem -LiteralPath (Join-Path $projectRoot 'public') -Force | Where-Object { $_.Name -notin @('storage', 'hot', 'build', 'build.zip', 'build (2).zip') }) {
         Copy-Item -LiteralPath $file.FullName -Destination $publicRoot -Recurse
     }
 
@@ -77,7 +86,6 @@ try {
     $deployFiles = Join-Path $releaseRoot 'deploy\cpanel'
     New-Item -ItemType Directory -Path $deployFiles -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'README.md') -Destination $deployFiles
-    Copy-Item -LiteralPath (Join-Path $PSScriptRoot '.env.production.example') -Destination $releaseRoot
 
     Push-Location $projectRoot
     try {
@@ -94,11 +102,51 @@ try {
         throw "Production Composer install failed with exit code $LASTEXITCODE."
     }
 
+    if (-not (Test-Path -LiteralPath (Join-Path $releaseRoot 'vendor\autoload.php') -PathType Leaf)) {
+        throw 'Production Composer autoloader was not created.'
+    }
+
+    if (-not (Test-Path -LiteralPath (Join-Path $publicBuildRoot 'manifest.json') -PathType Leaf)) {
+        throw 'Vite production manifest was not created.'
+    }
+
     $archiveDirectory = Split-Path -Parent $archivePath
     New-Item -ItemType Directory -Path $archiveDirectory -Force | Out-Null
-    Compress-Archive -Path (Join-Path $releaseRoot '*') -DestinationPath $archivePath
 
-    Write-Output "cPanel package created: $archivePath"
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+    $archiveFile = [System.IO.File]::Create($archivePath)
+    $zipArchive = New-Object System.IO.Compression.ZipArchive($archiveFile, [System.IO.Compression.ZipArchiveMode]::Create)
+
+    try {
+        $files = Get-ChildItem -LiteralPath $releaseRoot -Recurse -Force
+        foreach ($item in $files) {
+            $relativePath = $item.FullName.Substring($releaseRoot.Length).TrimStart('\', '/')
+            $entryName = $relativePath.Replace('\', '/')
+            if ($item.PSIsContainer) {
+                if (-not [string]::IsNullOrEmpty($entryName)) {
+                    [void]$zipArchive.CreateEntry($entryName + '/')
+                }
+            } else {
+                [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                    $zipArchive,
+                    $item.FullName,
+                    $entryName,
+                    [System.IO.Compression.CompressionLevel]::Optimal
+                )
+            }
+        }
+    } finally {
+        $zipArchive.Dispose()
+        $archiveFile.Dispose()
+    }
+
+    $rootDeployZip = Join-Path $projectRoot 'deploy.zip'
+    Copy-Item -LiteralPath $archivePath -Destination $rootDeployZip -Force
+
+    Write-Output "cPanel update package created: $archivePath"
+    Write-Output "Root deploy package updated: $rootDeployZip"
 } catch {
     if (Test-Path -LiteralPath $archivePath) {
         Remove-Item -LiteralPath $archivePath -Force

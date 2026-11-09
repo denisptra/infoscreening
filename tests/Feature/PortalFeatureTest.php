@@ -19,7 +19,7 @@ class PortalFeatureTest extends TestCase
 
     public function test_homepage_loads_successfully_with_content(): void
     {
-        $admin = User::factory()->create(['is_admin' => true]);
+        $admin = User::factory()->admin()->create();
         $category = Category::create(['name' => 'Artikel', 'slug' => 'artikel', 'color' => '#3A07BB']);
         $article = Article::create([
             'user_id' => $admin->id,
@@ -42,7 +42,7 @@ class PortalFeatureTest extends TestCase
 
     public function test_articles_detail_page_increments_views(): void
     {
-        $admin = User::factory()->create(['is_admin' => true]);
+        $admin = User::factory()->admin()->create();
         $article = Article::create([
             'user_id' => $admin->id,
             'title' => 'Wawancara Eksklusif Sineas',
@@ -61,6 +61,24 @@ class PortalFeatureTest extends TestCase
             'id' => $article->id,
             'views' => 11,
         ]);
+    }
+
+    public function test_article_detail_preserves_legacy_author_attribution(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $article = Article::create([
+            'user_id' => $admin->id,
+            'title' => 'Arsip Artikel Lama',
+            'slug' => 'arsip-artikel-lama',
+            'content' => 'Isi artikel arsip.',
+            'status' => 'published',
+            'published_at' => now()->subDay(),
+            'legacy_author_name' => 'Penulis WordPress',
+        ]);
+
+        $this->get('/artikel/'.$article->slug)
+            ->assertOk()
+            ->assertSee('Penulis WordPress');
     }
 
     public function test_events_kalender_page_loads(): void
@@ -120,27 +138,34 @@ class PortalFeatureTest extends TestCase
         $this->get('/tentang-kami')->assertStatus(200)->assertSee('Tentang Kami');
     }
 
-    public function test_admin_dashboard_requires_admin_role(): void
+    public function test_super_admin_uses_filament_while_admin_uses_editorial_panel(): void
     {
-        // Guest redirected to Filament admin login
         $this->get('/admin')->assertRedirect('/admin/login');
 
-        // Normal non-admin user is forbidden
-        $user = User::factory()->create(['is_admin' => false]);
+        $user = User::factory()->create();
         $this->actingAs($user)->get('/admin')->assertForbidden();
 
-        // Admin user can access Filament dashboard
-        $admin = User::factory()->create(['is_admin' => true]);
-        $this->actingAs($admin)->get('/admin')->assertStatus(200);
+        $admin = User::factory()->admin()->create();
+        $this->actingAs($admin)->get('/admin')->assertForbidden();
+        $this->actingAs($admin)->get('/strapi')->assertOk();
+        $this->actingAs($admin)->get('/strapi/articles')->assertOk();
+        $this->actingAs($admin)->get('/strapi/events')->assertOk();
+        $this->actingAs($admin)->get('/strapi/settings')->assertForbidden();
 
-        // Admin can access Filament Article and Event resources
-        $this->actingAs($admin)->get('/admin/articles')->assertStatus(200);
-        $this->actingAs($admin)->get('/admin/events')->assertStatus(200);
+        $editor = User::factory()->editor()->create();
+        $this->actingAs($editor)->get('/strapi')->assertOk();
+        $this->actingAs($editor)->get('/strapi/articles')->assertOk();
+        $this->actingAs($editor)->get('/strapi/events')->assertForbidden();
+
+        $superAdmin = User::factory()->superAdmin()->create();
+        $this->actingAs($superAdmin)->get('/admin')->assertOk();
+        $this->actingAs($superAdmin)->get('/admin/articles')->assertOk();
+        $this->actingAs($superAdmin)->get('/admin/events')->assertOk();
     }
 
     public function test_admin_media_library_can_list_and_upload(): void
     {
-        $admin = User::factory()->create(['is_admin' => true]);
+        $admin = User::factory()->superAdmin()->create();
 
         Storage::fake('public');
 
@@ -168,7 +193,7 @@ class PortalFeatureTest extends TestCase
 
     public function test_user_dashboard_does_not_escalate_regular_users_to_admin(): void
     {
-        $user = User::factory()->create(['is_admin' => false]);
+        $user = User::factory()->create();
 
         $response = $this->actingAs($user)->get('/dashboard');
 
@@ -180,7 +205,7 @@ class PortalFeatureTest extends TestCase
 
     public function test_admin_content_type_builder_and_settings_accessible(): void
     {
-        $admin = User::factory()->create(['is_admin' => true]);
+        $admin = User::factory()->superAdmin()->create();
 
         $this->actingAs($admin)->get('/strapi/content-types')
             ->assertStatus(200)

@@ -17,6 +17,8 @@ class Article extends Model
 
     protected $fillable = [
         'user_id',
+        'wordpress_source_id',
+        'legacy_author_name',
         'title',
         'slug',
         'excerpt',

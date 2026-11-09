@@ -69,7 +69,7 @@
                                 <a href="{{ route('categories.show', ['category' => $cat]) }}" target="_blank" class="p-1 text-[#8e8ea9] hover:text-[#32324d]" title="View Live">
                                     <i class="fas fa-arrow-up-right-from-square text-[11px]"></i>
                                 </a>
-                                <form method="POST" action="{{ route('strapi.categories.destroy', $cat) }}" class="inline" onsubmit="return confirm('Delete this category?');">
+                                <form method="POST" action="{{ route('strapi.categories.destroy', $cat) }}" class="inline" data-confirm data-confirm-title="Hapus kategori?" data-confirm-message="Kategori ini akan dihapus permanen." data-confirm-action="Hapus kategori">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="p-1 text-[#8e8ea9] hover:text-red-600" title="Delete">

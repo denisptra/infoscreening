@@ -94,19 +94,116 @@
                     @enderror
                 </div>
 
-                <!-- Content Markdown / WYSIWYG -->
+                <!-- Content WYSIWYG Editor (Word Style) -->
                 <div>
-                    <label for="content" class="block text-xs font-medium text-[#32324d] mb-1.5">
-                        Content Body <span class="text-red-500">*</span>
+                    <label for="content" class="block text-xs font-medium text-[#32324d] mb-1.5 flex items-center justify-between">
+                        <span>Content Body <span class="text-red-500">*</span></span>
+                        <span class="text-[11px] text-[#8e8ea9] font-normal">Rich Text Editor</span>
                     </label>
+
+                    <div class="border border-[#dcdce4] rounded-lg overflow-hidden focus-within:border-[#4945ff] focus-within:ring-1 focus-within:ring-[#4945ff] bg-white transition shadow-xs">
+                        <!-- Toolbar -->
+                        <div class="flex items-center flex-wrap gap-1 p-2 bg-[#f6f6f9] border-b border-[#eaeaef] text-[#4a4a6a]">
+                            <!-- Headings & Format -->
+                            <button type="button" onclick="formatDoc('formatBlock', '<h2>')" title="Heading 2 (Judul Bagian)" class="p-1.5 px-2 rounded hover:bg-white hover:shadow-xs transition text-xs font-bold text-[#32324d]">
+                                H2
+                            </button>
+                            <button type="button" onclick="formatDoc('formatBlock', '<h3>')" title="Heading 3 (Subjudul)" class="p-1.5 px-2 rounded hover:bg-white hover:shadow-xs transition text-xs font-semibold text-[#32324d]">
+                                H3
+                            </button>
+                            <button type="button" onclick="formatDoc('formatBlock', '<p>')" title="Paragraf Biasa" class="p-1.5 px-2 rounded hover:bg-white hover:shadow-xs transition text-xs font-normal text-[#32324d]">
+                                P
+                            </button>
+
+                            <div class="w-px h-5 bg-[#dcdce4] mx-1"></div>
+
+                            <!-- Text Formatting -->
+                            <button type="button" onclick="formatDoc('bold')" title="Tebal (Ctrl+B)" class="w-7 h-7 flex items-center justify-center rounded hover:bg-white hover:shadow-xs transition text-xs font-bold">
+                                <i class="fas fa-bold"></i>
+                            </button>
+                            <button type="button" onclick="formatDoc('italic')" title="Miring (Ctrl+I)" class="w-7 h-7 flex items-center justify-center rounded hover:bg-white hover:shadow-xs transition text-xs italic">
+                                <i class="fas fa-italic"></i>
+                            </button>
+                            <button type="button" onclick="formatDoc('underline')" title="Garis Bawah (Ctrl+U)" class="w-7 h-7 flex items-center justify-center rounded hover:bg-white hover:shadow-xs transition text-xs underline">
+                                <i class="fas fa-underline"></i>
+                            </button>
+                            <button type="button" onclick="formatDoc('strikeThrough')" title="Coret Teks" class="w-7 h-7 flex items-center justify-center rounded hover:bg-white hover:shadow-xs transition text-xs">
+                                <i class="fas fa-strikethrough"></i>
+                            </button>
+
+                            <div class="w-px h-5 bg-[#dcdce4] mx-1"></div>
+
+                            <!-- Alignment -->
+                            <button type="button" onclick="formatDoc('justifyLeft')" title="Rata Kiri" class="w-7 h-7 flex items-center justify-center rounded hover:bg-white hover:shadow-xs transition text-xs">
+                                <i class="fas fa-align-left"></i>
+                            </button>
+                            <button type="button" onclick="formatDoc('justifyCenter')" title="Rata Tengah" class="w-7 h-7 flex items-center justify-center rounded hover:bg-white hover:shadow-xs transition text-xs">
+                                <i class="fas fa-align-center"></i>
+                            </button>
+                            <button type="button" onclick="formatDoc('justifyRight')" title="Rata Kanan" class="w-7 h-7 flex items-center justify-center rounded hover:bg-white hover:shadow-xs transition text-xs">
+                                <i class="fas fa-align-right"></i>
+                            </button>
+                            <button type="button" onclick="formatDoc('justifyFull')" title="Rata Kiri Kanan" class="w-7 h-7 flex items-center justify-center rounded hover:bg-white hover:shadow-xs transition text-xs">
+                                <i class="fas fa-align-justify"></i>
+                            </button>
+
+                            <div class="w-px h-5 bg-[#dcdce4] mx-1"></div>
+
+                            <!-- Lists & Quotes -->
+                            <button type="button" onclick="formatDoc('insertUnorderedList')" title="Bullet List" class="w-7 h-7 flex items-center justify-center rounded hover:bg-white hover:shadow-xs transition text-xs">
+                                <i class="fas fa-list-ul"></i>
+                            </button>
+                            <button type="button" onclick="formatDoc('insertOrderedList')" title="Numbered List" class="w-7 h-7 flex items-center justify-center rounded hover:bg-white hover:shadow-xs transition text-xs">
+                                <i class="fas fa-list-ol"></i>
+                            </button>
+                            <button type="button" onclick="formatDoc('formatBlock', '<blockquote>')" title="Kutipan (Quote)" class="w-7 h-7 flex items-center justify-center rounded hover:bg-white hover:shadow-xs transition text-xs">
+                                <i class="fas fa-quote-left"></i>
+                            </button>
+
+                            <div class="w-px h-5 bg-[#dcdce4] mx-1"></div>
+
+                            <!-- Link & Horizontal Line -->
+                            <button type="button" onclick="insertLink()" title="Sisipkan Link Tautan" class="w-7 h-7 flex items-center justify-center rounded hover:bg-white hover:shadow-xs transition text-xs">
+                                <i class="fas fa-link"></i>
+                            </button>
+                            <button type="button" onclick="formatDoc('unlink')" title="Hapus Link" class="w-7 h-7 flex items-center justify-center rounded hover:bg-white hover:shadow-xs transition text-xs">
+                                <i class="fas fa-unlink"></i>
+                            </button>
+                            <button type="button" onclick="formatDoc('insertHorizontalRule')" title="Garis Pemisah" class="w-7 h-7 flex items-center justify-center rounded hover:bg-white hover:shadow-xs transition text-xs">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                            <button type="button" onclick="formatDoc('removeFormat')" title="Hapus Format" class="w-7 h-7 flex items-center justify-center rounded hover:bg-white hover:shadow-xs transition text-xs text-red-500">
+                                <i class="fas fa-eraser"></i>
+                            </button>
+
+                            <div class="w-px h-5 bg-[#dcdce4] mx-1"></div>
+
+                            <!-- Undo / Redo -->
+                            <button type="button" onclick="formatDoc('undo')" title="Undo (Ctrl+Z)" class="w-7 h-7 flex items-center justify-center rounded hover:bg-white hover:shadow-xs transition text-xs">
+                                <i class="fas fa-undo"></i>
+                            </button>
+                            <button type="button" onclick="formatDoc('redo')" title="Redo (Ctrl+Y)" class="w-7 h-7 flex items-center justify-center rounded hover:bg-white hover:shadow-xs transition text-xs">
+                                <i class="fas fa-redo"></i>
+                            </button>
+                        </div>
+
+                        <!-- Editable Visual Canvas -->
+                        <div
+                            id="editorCanvas"
+                            contenteditable="true"
+                            class="p-4 min-h-[350px] max-h-[600px] overflow-y-auto text-sm leading-relaxed text-[#32324d] outline-none focus:outline-none prose prose-sm max-w-none"
+                            placeholder="Mulai tulis naskah artikel Anda di sini seperti di Microsoft Word..."
+                        >{!! old('content', $article->content) !!}</div>
+                    </div>
+
+                    <!-- Hidden textarea mapped for Laravel Form POST -->
                     <textarea
                         name="content"
                         id="content"
-                        rows="14"
                         required
-                        class="w-full border border-[#dcdce4] rounded-md px-3.5 py-2.5 text-xs font-normal leading-relaxed text-[#32324d] focus:border-[#4945ff] focus:ring-1 focus:ring-[#4945ff]"
-                        placeholder="Write article body content here..."
+                        class="hidden"
                     >{{ old('content', $article->content) }}</textarea>
+
                     @error('content')
                         <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
                     @enderror
@@ -122,6 +219,11 @@
                         Entry Settings
                     </h3>
 
+                    @if (auth()->user()->isEditor())
+                        <div class="rounded-lg bg-blue-50 p-3 text-[11px] leading-relaxed text-blue-800">
+                            Artikel disimpan sebagai draf dan perlu diterbitkan oleh Admin atau Super Admin.
+                        </div>
+                    @else
                     <div>
                         <label for="status" class="block font-medium text-[#32324d] mb-1">
                             Status
@@ -135,7 +237,9 @@
                             <option value="published" {{ old('status', $article->status) === 'published' ? 'selected' : '' }}>Published</option>
                         </select>
                     </div>
+                    @endif
 
+                    @if (! auth()->user()->isEditor())
                     <div>
                         <label for="published_at" class="block font-medium text-[#32324d] mb-1">
                             Publish Date
@@ -148,7 +252,9 @@
                             class="w-full border border-[#dcdce4] rounded-md px-3 py-1.5 text-xs text-[#32324d]"
                         >
                     </div>
+                    @endif
 
+                    @if (! auth()->user()->isEditor())
                     <div class="pt-2">
                         <label class="inline-flex items-center gap-2 cursor-pointer">
                             <input
@@ -161,6 +267,7 @@
                             <span class="text-xs text-[#32324d] font-medium">Hero Featured Article</span>
                         </label>
                     </div>
+                    @endif
 
                     <div class="pt-3 border-t border-[#eaeaef]">
                         <button
@@ -168,7 +275,7 @@
                             class="w-full py-2 bg-[#4945ff] hover:bg-[#3b37eb] text-white text-xs font-medium rounded-lg transition shadow-sm flex items-center justify-center gap-2"
                         >
                             <i class="fas fa-check text-[10px]"></i>
-                            <span>{{ $article->exists ? 'Save Changes' : 'Publish Entry' }}</span>
+                            <span>{{ auth()->user()->isEditor() ? 'Simpan Draf' : 'Simpan Artikel' }}</span>
                         </button>
                     </div>
                 </div>
@@ -214,4 +321,44 @@
     </form>
 
 </div>
+
+<script>
+function formatDoc(cmd, value = null) {
+    document.execCommand(cmd, false, value);
+    syncContent();
+}
+
+function insertLink() {
+    const url = prompt('Masukkan URL tautan (contoh: https://google.com):');
+    if (url) {
+        document.execCommand('createLink', false, url);
+        syncContent();
+    }
+}
+
+function syncContent() {
+    const canvas = document.getElementById('editorCanvas');
+    const textarea = document.getElementById('content');
+    if (canvas && textarea) {
+        textarea.value = canvas.innerHTML;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const canvas = document.getElementById('editorCanvas');
+    const textarea = document.getElementById('content');
+    const form = document.querySelector('form');
+
+    if (canvas && textarea) {
+        canvas.addEventListener('input', syncContent);
+        canvas.addEventListener('blur', syncContent);
+    }
+
+    if (form) {
+        form.addEventListener('submit', function() {
+            syncContent();
+        });
+    }
+});
+</script>
 @endsection

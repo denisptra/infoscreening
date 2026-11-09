@@ -1,0 +1,12 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Keamanan: Blokir akses langsung ke file sensitif (.env, .git, composer.json, dll)
+    RewriteRule (^|/)\.(?!well-known/) - [F]
+    RewriteRule ^(composer\.(json|lock)|package(-lock)?\.json|phpunit\.xml|artisan)$ - [F]
+
+    # Arahkan semua request ke folder public/ jika Document Root belum diubah
+    RewriteRule ^$ public/index.php [L]
+    RewriteRule ^((?!public/).*)$ public/$1 [L]
+</IfModule>
+

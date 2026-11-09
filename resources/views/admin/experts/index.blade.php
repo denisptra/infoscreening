@@ -66,7 +66,7 @@
                         <a href="{{ route('strapi.experts.edit', $exp) }}" class="p-1 text-[#666687] hover:text-[#4945ff]" title="Edit Entry">
                             <i class="far fa-edit"></i>
                         </a>
-                        <form method="POST" action="{{ route('strapi.experts.destroy', $exp) }}" class="inline" onsubmit="return confirm('Delete this expert?');">
+                        <form method="POST" action="{{ route('strapi.experts.destroy', $exp) }}" class="inline" data-confirm data-confirm-title="Hapus tenaga ahli?" data-confirm-message="Data tenaga ahli ini akan dihapus permanen." data-confirm-action="Hapus tenaga ahli">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="p-1 text-[#8e8ea9] hover:text-red-600" title="Delete">

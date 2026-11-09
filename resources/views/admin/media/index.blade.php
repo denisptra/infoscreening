@@ -40,12 +40,21 @@
                     class="w-full pl-8 pr-3 py-1.5 text-xs border border-[#dcdce4] rounded-md focus:border-[#4945ff] focus:ring-1 focus:ring-[#4945ff] text-[#32324d]"
                 >
             </div>
-            <select name="type" onchange="this.form.submit()" class="text-xs border border-[#dcdce4] rounded-md px-2.5 py-1.5 text-[#32324d]">
-                <option value="">All asset types</option>
-                <option value="image" {{ request('type') === 'image' ? 'selected' : '' }}>Images only</option>
-                <option value="video" {{ request('type') === 'video' ? 'selected' : '' }}>Videos</option>
-                <option value="document" {{ request('type') === 'document' ? 'selected' : '' }}>Documents</option>
-            </select>
+            <label class="relative block">
+                <span class="sr-only">Filter tipe aset</span>
+                <select
+                    name="type"
+                    onchange="this.form.submit()"
+                    aria-label="Filter tipe aset"
+                    class="min-h-10 appearance-none rounded-full border-2 border-[#2f62e8] bg-white py-2 pl-4 pr-10 text-sm font-medium text-[#32324d] shadow-sm outline-none transition focus:ring-4 focus:ring-[#2f62e8]/15"
+                >
+                    <option value="">All asset types</option>
+                    <option value="image" {{ request('type') === 'image' ? 'selected' : '' }}>Images only</option>
+                    <option value="video" {{ request('type') === 'video' ? 'selected' : '' }}>Videos</option>
+                    <option value="document" {{ request('type') === 'document' ? 'selected' : '' }}>Documents</option>
+                </select>
+                <i class="fas fa-chevron-down pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-[#2f62e8]" aria-hidden="true"></i>
+            </label>
             <button type="submit" class="px-3 py-1.5 bg-[#f6f6f9] hover:bg-[#eaeaef] text-[#32324d] font-medium rounded-md transition">
                 Filter
             </button>
@@ -101,7 +110,7 @@
                                 >
                                     <i class="fas fa-arrow-up-right-from-square"></i>
                                 </a>
-                                <form method="POST" action="{{ route('strapi.media.destroy', $item) }}" class="inline" onsubmit="return confirm('Delete this asset from library?');">
+                                <form method="POST" action="{{ route('strapi.media.destroy', $item) }}" class="inline" data-confirm data-confirm-title="Hapus aset?" data-confirm-message="Aset ini akan dihapus dari Media Library dan tidak bisa dipulihkan." data-confirm-action="Hapus aset">
                                     @csrf
                                     @method('DELETE')
                                     <button
@@ -165,17 +174,18 @@
         x-show="openUploadModal"
         x-cloak
         class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-[#212134]/60 backdrop-blur-xs"
-        @keydown.escape.window="openUploadModal = false"
+        @click.self="requestCloseUpload()"
+        @keydown.escape.window="requestCloseUpload()"
     >
-        <div class="bg-white rounded-xl shadow-2xl border border-[#eaeaef] max-w-xl w-full overflow-hidden" @click.away="openUploadModal = false">
+        <section role="dialog" aria-modal="true" aria-labelledby="media-upload-title" class="bg-white rounded-xl shadow-2xl border border-[#eaeaef] max-w-xl w-full overflow-hidden">
             
             <!-- Modal Header -->
             <div class="p-4 px-6 border-b border-[#eaeaef] flex items-center justify-between bg-white">
                 <div>
-                    <h3 class="font-sans font-semibold text-sm text-[#32324d]">Add new assets</h3>
+                    <h3 id="media-upload-title" class="font-sans font-semibold text-sm text-[#32324d]">Add new assets</h3>
                     <p class="text-[11px] text-[#8e8ea9]">Upload from your computer or import from URL</p>
                 </div>
-                <button type="button" @click="openUploadModal = false" class="text-[#8e8ea9] hover:text-[#32324d]">
+                <button type="button" @click="requestCloseUpload()" aria-label="Tutup upload" class="text-[#8e8ea9] hover:text-[#32324d]">
                     <i class="fas fa-times text-xs"></i>
                 </button>
             </div>
@@ -255,7 +265,7 @@
                         <div class="pt-4 border-t border-[#eaeaef] flex items-center justify-end gap-2">
                             <button
                                 type="button"
-                                @click="openUploadModal = false; selectedFiles = []"
+                                @click="requestCloseUpload()"
                                 class="px-3.5 py-2 bg-[#f6f6f9] hover:bg-[#eaeaef] text-[#666687] text-xs font-medium rounded-lg transition"
                             >
                                 Cancel
@@ -299,7 +309,7 @@
                         <div class="pt-4 border-t border-[#eaeaef] flex items-center justify-end gap-2">
                             <button
                                 type="button"
-                                @click="openUploadModal = false"
+                                @click="requestCloseUpload()"
                                 class="px-3.5 py-2 bg-[#f6f6f9] hover:bg-[#eaeaef] text-[#666687] text-xs font-medium rounded-lg transition"
                             >
                                 Cancel
@@ -316,18 +326,7 @@
 
             </div>
 
-        </div>
-    </div>
-
-    <!-- Toast Notification for Copy -->
-    <div
-        x-show="showToast"
-        x-cloak
-        x-transition
-        class="fixed bottom-6 right-6 z-50 bg-[#212134] text-white px-4 py-2.5 rounded-lg shadow-xl text-xs flex items-center gap-2 border border-[#32324d]"
-    >
-        <i class="fas fa-check-circle text-emerald-400"></i>
-        <span x-text="toastMessage"></span>
+        </section>
     </div>
 
 </div>
@@ -338,9 +337,6 @@ function strapiMediaLibrary() {
         openUploadModal: false,
         uploadTab: 'computer',
         selectedFiles: [],
-        showToast: false,
-        toastMessage: '',
-
         handleFiles(files) {
             this.selectedFiles = Array.from(files);
         },
@@ -357,6 +353,26 @@ function strapiMediaLibrary() {
             this.selectedFiles.splice(idx, 1);
         },
 
+        requestCloseUpload() {
+            if (this.selectedFiles.length === 0) {
+                this.openUploadModal = false;
+                return;
+            }
+
+            window.dispatchEvent(new CustomEvent('app-confirm', {
+                detail: {
+                    title: 'Buang file yang dipilih?',
+                    message: 'File yang sudah dipilih belum diunggah dan akan dihapus dari daftar.',
+                    action: 'Buang file',
+                    onConfirm: () => {
+                        this.selectedFiles = [];
+                        this.$refs.fileInput.value = '';
+                        this.openUploadModal = false;
+                    },
+                },
+            }));
+        },
+
         formatSize(bytes) {
             if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
             if (bytes >= 1024) return (bytes / 1024).toFixed(0) + ' KB';
@@ -364,11 +380,9 @@ function strapiMediaLibrary() {
         },
 
         copyUrl(url) {
-            navigator.clipboard.writeText(url).then(() => {
-                this.toastMessage = 'Asset URL copied to clipboard!';
-                this.showToast = true;
-                setTimeout(() => { this.showToast = false; }, 2500);
-            });
+            window.dispatchEvent(new CustomEvent('app-copy', {
+                detail: { text: url, label: 'URL aset' },
+            }));
         }
     };
 }

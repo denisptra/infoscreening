@@ -11,14 +11,29 @@
             <div class="space-y-1.5 max-w-xl">
                 <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-white/10 text-purple-200">
                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                    <span>Infoscreening Headless CMS</span>
+                    <span>Dashboard Super Admin</span>
                 </div>
                 <h2 class="font-sans font-semibold text-xl sm:text-2xl text-white tracking-tight">
-                    Welcome to Infoscreening CMS 👋
+                    Selamat datang di panel Infoscreening
                 </h2>
                 <p class="text-xs text-[#c0c0cf] font-normal leading-relaxed">
-                    Kelola seluruh ekosistem sinema alternatif, kalender festival film, naskah liputan, dan direktori kurator secara terpusat.
+                    Kelola tim, konten, navigasi, dan tampilan situs dari satu tempat.
                 </p>
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+                <a href="{{ route('strapi.settings.index', ['tab' => 'users']) }}" class="inline-flex items-center gap-2 rounded-lg border border-[#eaeaef] bg-white px-4 py-3 text-xs font-medium text-[#32324d] hover:border-[#4945ff]">
+                    <i class="fas fa-users text-[#4945ff]"></i>
+                    <span>Kelola Pengguna &amp; Peran ({{ number_format($stats['users']) }})</span>
+                </a>
+                <a href="{{ route('strapi.navigation.index') }}" class="inline-flex items-center gap-2 rounded-lg border border-[#eaeaef] bg-white px-4 py-3 text-xs font-medium text-[#32324d] hover:border-[#4945ff]">
+                    <i class="fas fa-bars-staggered text-[#4945ff]"></i>
+                    <span>Atur Navigasi &amp; Footer</span>
+                </a>
+                <a href="{{ route('strapi.settings.index') }}" class="inline-flex items-center gap-2 rounded-lg border border-[#eaeaef] bg-white px-4 py-3 text-xs font-medium text-[#32324d] hover:border-[#4945ff]">
+                    <i class="fas fa-gear text-[#4945ff]"></i>
+                    <span>Pengaturan CMS</span>
+                </a>
             </div>
 
             <div class="flex flex-wrap items-center gap-2.5 shrink-0">
@@ -104,6 +119,21 @@
                 <div class="w-8 h-8 rounded-lg bg-[#fff8eb] text-amber-600 flex items-center justify-center text-xs">
                     <i class="fas fa-inbox"></i>
                 </div>
+
+                <div class="bg-white p-4.5 rounded-xl border border-[#eaeaef] shadow-strapi flex flex-col justify-between">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-medium text-[#666687]">Tim CMS</span>
+                        <div class="w-8 h-8 rounded-lg bg-[#f0ebfc] text-[#4945ff] flex items-center justify-center text-xs">
+                            <i class="fas fa-users"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <h3 class="font-sans font-semibold text-2xl text-[#32324d]">{{ number_format($stats['users']) }}</h3>
+                        <p class="text-[11px] text-[#8e8ea9] mt-0.5 font-normal">
+                            {{ $stats['admins'] }} admin &bull; {{ $stats['editors'] }} editor
+                        </p>
+                    </div>
+                </div>
             </div>
             <div class="mt-3">
                 <h3 class="font-sans font-semibold text-2xl text-amber-600">{{ $stats['pending'] }}</h3>
@@ -127,7 +157,7 @@
             </a>
         </div>
 
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
             <!-- Collection: Articles -->
             <div class="p-3.5 bg-white rounded-xl border border-[#eaeaef] shadow-xs hover:border-[#4945ff]/40 transition flex flex-col justify-between group">
                 <div>
@@ -165,11 +195,26 @@
                         <i class="fas fa-folder"></i>
                     </div>
                     <span class="font-semibold text-xs text-[#32324d] block">Categories</span>
-                    <span class="text-[10px] text-[#8e8ea9]">{{ \App\Models\Category::count() }} rubrik</span>
+                    <span class="text-[10px] text-[#8e8ea9]">{{ $stats['categories'] }} rubrik</span>
                 </div>
                 <div class="mt-3 pt-2.5 border-t border-[#f6f6f9] flex items-center justify-between text-[11px]">
                     <a href="{{ route('strapi.categories.create') }}" class="text-[#4945ff] hover:underline font-medium">+ New</a>
                     <a href="{{ route('strapi.categories.index') }}" class="text-[#8e8ea9] hover:text-[#32324d]">View &rarr;</a>
+                </div>
+            </div>
+
+            <!-- Collection: Tags -->
+            <div class="p-3.5 bg-white rounded-xl border border-[#eaeaef] shadow-xs hover:border-[#4945ff]/40 transition flex flex-col justify-between group">
+                <div>
+                    <div class="w-8 h-8 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center text-xs mb-2 group-hover:scale-105 transition-transform">
+                        <i class="fas fa-tags"></i>
+                    </div>
+                    <span class="font-semibold text-xs text-[#32324d] block">Tags</span>
+                    <span class="text-[10px] text-[#8e8ea9]">{{ $stats['tags'] }} topik</span>
+                </div>
+                <div class="mt-3 pt-2.5 border-t border-[#f6f6f9] flex items-center justify-between text-[11px]">
+                    <a href="{{ route('strapi.tags.create') }}" class="text-[#4945ff] hover:underline font-medium">+ New</a>
+                    <a href="{{ route('strapi.tags.index') }}" class="text-[#8e8ea9] hover:text-[#32324d]">View &rarr;</a>
                 </div>
             </div>
 
@@ -218,6 +263,48 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <section class="bg-white rounded-xl border border-[#eaeaef] shadow-strapi overflow-hidden">
+            <div class="p-4 sm:p-5 border-b border-[#eaeaef] flex items-center justify-between">
+                <div>
+                    <h3 class="font-sans font-semibold text-sm text-[#32324d]">Rubrik Artikel</h3>
+                    <p class="text-[11px] text-[#8e8ea9]">Rubrik yang sedang tertaut pada dropdown Artikel.</p>
+                </div>
+                <a href="{{ route('strapi.categories.index') }}" class="text-xs text-[#4945ff] hover:underline font-medium">Kelola rubrik &rarr;</a>
+            </div>
+            <div class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                @forelse ($dashboardCategories as $category)
+                    <a href="{{ route('categories.show', ['category' => $category]) }}" class="flex items-center justify-between gap-3 rounded-lg border border-[#eaeaef] px-3 py-2.5 hover:border-[#4945ff]/50">
+                        <span class="text-xs font-medium text-[#32324d]">{{ $category->menu_label }}</span>
+                        <span class="text-[10px] text-[#8e8ea9]">{{ $category->articles_count }} artikel</span>
+                    </a>
+                @empty
+                    <p class="text-xs text-[#8e8ea9]">Belum ada rubrik. Tambahkan rubrik untuk mulai mengelompokkan artikel.</p>
+                @endforelse
+            </div>
+        </section>
+
+        <section class="bg-white rounded-xl border border-[#eaeaef] shadow-strapi overflow-hidden">
+            <div class="p-4 sm:p-5 border-b border-[#eaeaef] flex items-center justify-between">
+                <div>
+                    <h3 class="font-sans font-semibold text-sm text-[#32324d]">Topik Pilihan</h3>
+                    <p class="text-[11px] text-[#8e8ea9]">Tag yang juga ditampilkan pada footer situs.</p>
+                </div>
+                <a href="{{ route('strapi.tags.index') }}" class="text-xs text-[#4945ff] hover:underline font-medium">Kelola tag &rarr;</a>
+            </div>
+            <div class="p-4 flex flex-wrap gap-2">
+                @forelse ($dashboardTags as $tag)
+                    <a href="{{ route('tags.show', ['tag' => $tag]) }}" class="inline-flex items-center gap-2 rounded-full border border-[#eaeaef] px-3 py-2 text-xs text-[#32324d] hover:border-[#4945ff]/50">
+                        <span>#{{ $tag->name }}</span>
+                        <span class="text-[10px] text-[#8e8ea9]">{{ $tag->articles_count }}</span>
+                    </a>
+                @empty
+                    <p class="text-xs text-[#8e8ea9]">Belum ada tag. Tambahkan tag untuk memudahkan pembaca menemukan topik terkait.</p>
+                @endforelse
+            </div>
+        </section>
     </div>
 
     <!-- 3. Strapi Content Table & Information Columns -->

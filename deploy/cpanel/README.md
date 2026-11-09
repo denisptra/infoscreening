@@ -1,39 +1,59 @@
-# Deploy Infoscreening ke cPanel
+# Memperbarui Infoscreening di cPanel
 
-Paket ini dibuat untuk cPanel yang menyediakan PHP **8.3 atau lebih baru, tetapi di bawah PHP 9** (sesuai batas `^8.3` project), ekstensi `pdo_mysql`, dan Apache dengan `mod_rewrite`.
+Paket ini untuk **memperbarui aplikasi yang sudah terpasang**, bukan instalasi baru. Proses ini tidak mengimpor konten atau mengganti `.env`.
 
-## Membuat paket
+## Persyaratan
 
-Dari PowerShell di root project:
+- PHP **8.3 atau lebih baru** dengan ekstensi Laravel/Filament yang diperlukan, termasuk `pdo_mysql`, `intl`, `mbstring`, `openssl`, `xml`, `ctype`, `fileinfo`, dan `curl`.
+- Document root domain tetap mengarah ke folder `public` aplikasi.
+- Apache `mod_rewrite` aktif.
+
+## 1. Buat ZIP pembaruan
+
+Jalankan dari PowerShell di root project:
 
 ```powershell
 .\deploy\cpanel\build.ps1
 ```
 
-Hasilnya adalah `deploy/cpanel/infoscreening-cpanel.zip`. Paket memuat kode aplikasi, migration, aset frontend yang sudah dibangun, dan dependency Composer production. Paket tidak memuat `.env`, database SQLite lokal, file upload, log, cache, test, `node_modules`, atau tooling lokal. Tidak ada data database yang dihapus atau dimasukkan ke arsip.
+Hasilnya `deploy/cpanel/infoscreening-cpanel.zip`. Paket berisi kode aplikasi, `vendor/` production yang dibangun dari `composer.lock`, dan build Vite production. Paket **tidak** berisi `.env`, dump SQL, installer web, upload pengguna, atau cache konfigurasi.
 
-## Persiapan di cPanel
+Builder tidak menghapus atau mengubah folder `vendor` maupun database di project lokal.
 
-1. Di **MultiPHP Manager** atau **Select PHP Version**, pilih PHP 8.3 dan aktifkan `pdo_mysql`, `fileinfo`, `mbstring`, `openssl`, `tokenizer`, `xml`, `ctype`, dan `zip`. Minta provider mengaktifkannya jika pilihan tidak tersedia.
-2. Buat database MySQL dan user melalui **MySQL Database Wizard**, lalu berikan user akses ke database.
-3. Buat folder aplikasi di luar `public_html`, misalnya `/home/USER/infoscreening`. Ekstrak isi ZIP ke folder tersebut.
-4. Atur document root domain/subdomain ke folder `public` aplikasi, misalnya `/home/USER/infoscreening/public`. Jangan arahkan document root ke folder aplikasi utama. Jika cPanel tidak mengizinkan perubahan document root, minta bantuan provider hosting sebelum lanjut.
-5. Salin `.env.production.example` menjadi `.env` di folder utama aplikasi. Isi `APP_URL` dan detail database cPanel. Jangan unggah `.env` ke Git atau membagikan isinya.
-6. Di **Terminal** cPanel, dari folder aplikasi, jalankan:
+## 2. Cadangkan dan unggah
 
-   ```bash
-   php artisan key:generate
-   php artisan storage:link
-   ```
+1. Dari cPanel File Manager, buat salinan file aplikasi saat ini dan backup database lewat phpMyAdmin sebagai langkah pemulihan.
+2. Upload ZIP ke folder aplikasi yang berisi `artisan` (bukan ke `public_html` kecuali itu memang folder aplikasi di luar document root).
+3. Extract ZIP **ke folder aplikasi yang sama** dan izinkan file kode diganti.
+4. Jangan hapus `.env`, database, `storage/app/public`, atau `public/storage`. ZIP tidak berisi file-file tersebut. Folder `vendor` boleh ditimpa dari paket, tetapi jangan hapus foldernya.
+5. Pastikan `storage`, `storage/framework`, dan `bootstrap/cache` dapat ditulis oleh PHP.
 
-   Simpan `APP_KEY` dan gunakan kembali saat update berikutnya; jangan membuat key baru untuk aplikasi yang sudah menyimpan data terenkripsi atau sesi.
+## 3. Periksa cache dan situs
 
-7. Pastikan folder `storage` dan `bootstrap/cache` dapat ditulis oleh PHP. Jika database baru sudah siap, backup dahulu bila ada data, lalu jalankan `php artisan migrate --force`. Perintah ini membuat/memperbarui struktur tabel; tidak menjalankan seeder dan tidak dimaksudkan untuk mengosongkan database.
-8. Setelah `.env` final, jalankan `php artisan config:cache`. Untuk perubahan konfigurasi berikutnya, jalankan `php artisan config:clear` lalu cache ulang.
-9. Aktifkan SSL/HTTPS di cPanel. Pastikan `APP_DEBUG=false` tetap digunakan.
+- Pertahankan nilai `APP_KEY`, koneksi database, dan konfigurasi lain di `.env`. Jangan membuat APP_KEY baru.
+- Agar fitur lupa password dapat mengirim email, atur konfigurasi SMTP berikut di `.env` server. Isi `MAIL_PASSWORD` dengan password mailbox yang dibuat di cPanel; jangan masukkan password ke repositori atau paket ZIP.
 
-## Data dan file yang dipindahkan terpisah
+  ```dotenv
+  MAIL_MAILER=smtp
+  MAIL_SCHEME=smtps
+  MAIL_HOST=mail.infoscreening.id
+  MAIL_PORT=465
+  MAIL_USERNAME=reset@infoscreening.id
+  MAIL_PASSWORD=
+  MAIL_FROM_ADDRESS=reset@infoscreening.id
+  MAIL_FROM_NAME="Infoscreening"
+  ```
 
-ZIP sengaja tidak berisi database lokal, data akun/konten, file upload dari `storage/app/public`, `.env`, atau `APP_KEY`. Jika data atau upload tersebut penting, migrasikan secara terpisah melalui ekspor/impor database dan backup file setelah menentukan sumber serta targetnya. Jangan menjalankan seeder di production kecuali memang sudah ditinjau dan disetujui.
+- Pastikan `APP_URL` di `.env` memakai URL HTTPS website agar tautan reset mengarah ke domain yang benar. Jika konfigurasi Laravel di-cache, hapus `bootstrap/cache/config.php` lewat File Manager agar pengaturan SMTP baru terbaca. Jangan menghapus `.env`.
+- Paket tidak menjalankan migration atau seeder secara otomatis. Untuk rilis yang menyediakan kategori dan tag bawaan, jalankan seeder khusus di bawah ini setelah backup database. Seeder ini hanya menambahkan kategori/tag yang belum ada dan menyelaraskan tautan menu bawaan Artikel; seeder tidak membuat artikel atau menghapus konten.
 
-Jika hosting tidak menyediakan Terminal/SSH, jangan mencoba mengunggah file aplikasi ke `public_html` sebagai pengganti pengaturan document root. Minta provider mengaktifkan Terminal/Composer atau bantu menyiapkan document root yang menunjuk ke `public`.
+  ```sh
+  php artisan db:seed --class='Database\Seeders\DefaultTaxonomySeeder' --force
+  ```
+
+- Jangan impor SQL atau menjalankan migration untuk rilis ini.
+- Jika aplikasi memakai cache konfigurasi/rute lama, hapus file cache konfigurasi dan rute yang dihasilkan di `bootstrap/cache` lewat File Manager; jangan menghapus `.env` atau data di `storage`.
+- Pastikan `APP_ENV=production`, `APP_DEBUG=false`, dan `APP_URL` memakai domain `https://` yang benar. Aktifkan AutoSSL di cPanel bila perlu; reverse proxy harus meneruskan informasi HTTPS agar URL yang dihasilkan Laravel tetap aman.
+- Buka situs dan `/admin`, lalu cek log terbaru di `storage/logs/laravel.log` jika terjadi error.
+
+Paket ini sengaja tidak menyertakan `install.php`; tidak ada installer publik yang perlu diunggah atau dijalankan.
