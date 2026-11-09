@@ -29,11 +29,10 @@ jobs:
           extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql, intl, fileinfo
           coverage: none
 
-      - name: 3. Setup Node.js 20
+      - name: 3. Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: 22
 
       - name: 4. Setup Temporary Environment
         run: |
@@ -46,7 +45,7 @@ jobs:
 
       - name: 6. Build Frontend Assets (Vite)
         run: |
-          npm ci
+          npm install
           npm run build
 
       - name: 7. Bersihkan File Non-Produksi Sebelum Deploy
