@@ -5,7 +5,7 @@ on:
     branches:
       - main
       - master
-  workflow_dispatch: # Memungkinkan deploy manual dari tombol "Run workflow" di GitHub Actions
+  workflow_dispatch:
 
 concurrency:
   group: production-deploy
@@ -13,14 +13,14 @@ concurrency:
 
 jobs:
   build-and-deploy:
-    name: Build & Deploy via FTPS
+    name: Build & Deploy via FTP
     runs-on: ubuntu-latest
 
     steps:
       - name: 1. Checkout Repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2 # Butuh riwayat git untuk deteksi file yang berubah pada FTP
+          fetch-depth: 2
 
       - name: 2. Setup PHP 8.3
         uses: shivammathur/setup-php@v2
@@ -35,17 +35,23 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: 4. Install Composer Dependencies (Production)
+      - name: 4. Setup Temporary Environment
+        run: |
+          cp .env.example .env
+          php -r "file_exists('database/database.sqlite') || touch('database/database.sqlite');"
+
+      - name: 5. Install Composer Dependencies (Production)
         run: |
           composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader --no-progress
 
-      - name: 5. Build Frontend Assets (Vite)
+      - name: 6. Build Frontend Assets (Vite)
         run: |
           npm ci
           npm run build
 
-      - name: 6. Bersihkan Direktori Non-Produksi Sebelum Deploy
+      - name: 7. Bersihkan File Non-Produksi Sebelum Deploy
         run: |
+          rm -f .env
           rm -rf node_modules
           rm -rf tests
           rm -rf .github
@@ -53,16 +59,15 @@ jobs:
           rm -f *.sql
           rm -rf import_per_table
 
-      - name: 7. Deploy ke cPanel via FTP / FTPS
+      - name: 8. Deploy ke cPanel via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          server-dir: ${{ secrets.FTP_SERVER_DIR || '/' }}
-          protocol: ${{ secrets.FTP_PROTOCOL || 'ftps' }}
-          port: ${{ secrets.FTP_PORT || 21 }}
-          # File dan folder yang TIDAK BOLEH ditimpa atau dihapus di cPanel
+          server-dir: ./
+          protocol: ftp
+          port: 21
           exclude: |
             **/.git*
             **/.git*/**
@@ -76,11 +81,3 @@ jobs:
             public/storage/**
             database/*.sqlite
             database/*.sql
-
-      - name: 8. Optional: Simpan Paket ZIP sebagai GitHub Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: production-build-${{ github.sha }}
-          path: |
-            ./
-          retention-days: 7
