@@ -160,4 +160,37 @@ class AdminRoleTest extends TestCase
         $this->assertSame(UserRole::SuperAdmin, $user->fresh()->role);
         $this->assertTrue($user->fresh()->is_admin);
     }
+
+    public function test_all_cms_roles_can_create_articles_with_base64_encoded_content(): void
+    {
+        $users = [
+            User::factory()->superAdmin()->create(),
+            User::factory()->admin()->create(),
+            User::factory()->editor()->create(),
+        ];
+
+        foreach ($users as $user) {
+            $content = '<p>Isi artikel dengan <strong>HTML</strong> dan <em>format</em>.</p>';
+
+            $response = $this->actingAs($user)->post('/strapi/articles', [
+                'title' => 'Artikel '.$user->role->value,
+                'content_is_encoded' => '1',
+                'content_encoded' => base64_encode($content),
+                'status' => 'published',
+            ]);
+
+            $response->assertRedirect('/strapi/articles');
+            $this->assertDatabaseHas('articles', [
+                'user_id' => $user->id,
+                'content' => $content,
+            ]);
+        }
+    }
+
+    public function test_editor_can_access_media_library_for_article_images(): void
+    {
+        $editor = User::factory()->editor()->create();
+
+        $this->actingAs($editor)->get('/strapi/media')->assertOk();
+    }
 }

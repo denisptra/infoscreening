@@ -47,7 +47,7 @@
         'events' => in_array($currentUser->role, [\App\Enums\UserRole::SuperAdmin, \App\Enums\UserRole::Admin], true) ? \App\Models\Event::count() : 0,
         'experts' => in_array($currentUser->role, [\App\Enums\UserRole::SuperAdmin, \App\Enums\UserRole::Admin], true) ? \App\Models\Expert::count() : 0,
         'products' => in_array($currentUser->role, [\App\Enums\UserRole::SuperAdmin, \App\Enums\UserRole::Admin], true) ? \App\Models\Product::count() : 0,
-        'media' => in_array($currentUser->role, [\App\Enums\UserRole::SuperAdmin, \App\Enums\UserRole::Admin], true) ? \App\Models\Media::count() : 0,
+        'media' => \App\Models\Media::count(),
     ]);
 @endphp
 
@@ -180,8 +180,7 @@
                 </div>
 
                 <!-- Section: PLUGINS & TOOLS -->
-                @if (! auth()->user()->isEditor())
-                    <div class="space-y-1">
+                <div class="space-y-1">
                     <div class="px-3 pb-1 text-[10px] font-semibold text-[#8e8ea9] tracking-wider uppercase">
                         Plugins
                     </div>
@@ -202,8 +201,7 @@
                         <span>Media Library</span>
                         <span class="text-[10px] text-[#8e8ea9] ml-auto font-normal">{{ $sidebarCounts['media'] }}</span>
                     </a>
-                    </div>
-                @endif
+                </div>
 
                 <!-- Section: SETTINGS & APPEARANCE -->
                 @if (auth()->user()->isSuperAdmin() || auth()->user()->isEditorialAdmin())

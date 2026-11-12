@@ -63,6 +63,8 @@
     </div>
 
     <!-- 2. Strapi Collection Metrics KPI Cards -->
+    @include('admin.partials.role-access')
+
     <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <!-- Metric 1: Articles -->
         <div class="bg-white p-4.5 rounded-xl border border-[#eaeaef] shadow-strapi flex flex-col justify-between">

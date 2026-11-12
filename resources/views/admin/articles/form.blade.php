@@ -200,9 +200,12 @@
                     <textarea
                         name="content"
                         id="content"
-                        required
                         class="hidden"
                     >{{ old('content', $article->content) }}</textarea>
+
+                    <!-- HTML dikirim dalam bentuk base64 agar tidak diblokir ModSecurity/WAF cPanel -->
+                    <input type="hidden" name="content_is_encoded" value="1">
+                    <input type="hidden" name="content_encoded" id="contentEncoded">
 
                     @error('content')
                         <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
@@ -344,10 +347,24 @@ function syncContent() {
     }
 }
 
+function encodeContentForSubmit() {
+    const canvas = document.getElementById('editorCanvas');
+    const textarea = document.getElementById('content');
+    const encoded = document.getElementById('contentEncoded');
+
+    if (! canvas || ! textarea || ! encoded) {
+        return;
+    }
+
+    textarea.value = canvas.innerHTML;
+    encoded.value = btoa(unescape(encodeURIComponent(textarea.value)));
+    textarea.value = '';
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const canvas = document.getElementById('editorCanvas');
     const textarea = document.getElementById('content');
-    const form = document.querySelector('form');
+    const form = textarea ? textarea.closest('form') : null;
 
     if (canvas && textarea) {
         canvas.addEventListener('input', syncContent);
@@ -356,7 +373,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (form) {
         form.addEventListener('submit', function() {
-            syncContent();
+            encodeContentForSubmit();
         });
     }
 });

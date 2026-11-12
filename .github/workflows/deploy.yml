@@ -1,4 +1,4 @@
-name: Deploy to cPanel
+name: Publish cPanel Deploy Branch
 
 on:
   push:
@@ -8,19 +8,20 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: production-deploy
-  cancel-in-progress: false
+  group: cpanel-deploy-publish
+  cancel-in-progress: true
+
+permissions:
+  contents: write
 
 jobs:
-  build-and-deploy:
-    name: Build & Deploy via FTP
+  publish:
+    name: Build & publish deploy branch
     runs-on: ubuntu-latest
 
     steps:
-      - name: 1. Checkout Repository
+      - name: 1. Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
 
       - name: 2. Setup PHP 8.3
         uses: shivammathur/setup-php@v2
@@ -33,50 +34,44 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
-      - name: 4. Setup Temporary Environment
+      - name: 4. Siapkan environment build
         run: |
           cp .env.example .env
           php -r "file_exists('database/database.sqlite') || touch('database/database.sqlite');"
 
-      - name: 5. Install Composer Dependencies (Production)
-        run: |
-          composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader --no-progress
+      - name: 5. Install Composer dependencies (production)
+        run: composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader --no-progress
 
-      - name: 6. Build Frontend Assets (Vite)
+      - name: 6. Build frontend assets (Vite)
         run: |
-          npm install
+          npm ci
           npm run build
 
-      - name: 7. Bersihkan File Non-Produksi Sebelum Deploy
+      - name: 7. Bersihkan file non-produksi
         run: |
           rm -f .env
-          rm -rf node_modules
-          rm -rf tests
-          rm -rf .github
-          rm -rf deploy/cpanel/*.zip
+          rm -rf node_modules tests .github deploy
           rm -f *.sql
           rm -rf import_per_table
+          rm -f database/database.sqlite
+          rm -f .phpunit.result.cache
+          rm -f bootstrap/cache/*.php
+          rm -f storage/framework/views/*.php
+          rm -rf storage/framework/cache/data
+          rm -f storage/framework/sessions/*
+          rm -f storage/logs/*.log
+          rm -rf .git
 
-      - name: 8. Deploy ke cPanel via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          server-dir: ./
-          protocol: ftp
-          port: 21
-          exclude: |
-            **/.git*
-            **/.git*/**
-            .env
-            .env.*
-            storage/app/**
-            storage/framework/cache/**
-            storage/framework/sessions/**
-            storage/framework/views/**
-            storage/logs/**
-            public/storage/**
-            database/*.sqlite
-            database/*.sql
+      - name: 8. Publikasikan branch deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git init -b deploy
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -f
+          git commit -m "build: ${GITHUB_SHA::7}"
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force origin deploy

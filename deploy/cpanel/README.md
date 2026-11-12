@@ -57,3 +57,97 @@ Builder tidak menghapus atau mengubah folder `vendor` maupun database di project
 - Buka situs dan `/admin`, lalu cek log terbaru di `storage/logs/laravel.log` jika terjadi error.
 
 Paket ini sengaja tidak menyertakan `install.php`; tidak ada installer publik yang perlu diunggah atau dijalankan.
+
+## 4. Jika simpan artikel menghasilkan 403
+
+Pesan **"403 Forbidden — Access to this resource on the server is denied!"** berasal dari web server cPanel (ModSecurity / WAF), bukan dari Laravel. Request POST yang berisi HTML artikel sering dianggap serangan XSS oleh aturan WAF.
+
+Perbaikan di cPanel:
+
+1. Buka **cPanel → Security → ModSecurity™**.
+2. Nonaktifkan ModSecurity untuk domain `infoscreening.id` (tombol menjadi **OFF**), lalu simpan.
+3. Jika hosting memakai Imunify360, buka **Imunify360 → Firewall → WAF** dan matikan mode blocking untuk domain tersebut.
+4. Coba simpan artikel kembali.
+
+Jika ingin ModSecurity tetap aktif, cek `error_log` domain untuk baris `ModSecurity: Access denied with code 403 ... [id "XXXXXX"]`, lalu minta penyedia hosting meng-whitelist rule ID tersebut untuk domain.
+
+Catatan: pastikan juga `APP_ENV=production`, `APP_DEBUG=false`, dan `APP_URL=https://infoscreening.id` di `.env` server.
+
+## 5. CI/CD via cPanel Git Version Control
+
+Repo GitHub bersifat publik, jadi cPanel bisa clone langsung tanpa token. Alurnya:
+
+1. Push ke `main` → GitHub Actions membangun `vendor/` dan `public/build/`, lalu force-push branch `deploy` berisi aplikasi siap jalan.
+2. cPanel Git Version Control menarik branch `deploy` ke folder aplikasi.
+3. Cron menjalankan migration + cache setiap 5 menit.
+
+Tidak ada secrets GitHub yang perlu dibuat untuk alur ini.
+
+### Sekali saja di cPanel
+
+1. Buka **Files → Git Version Control → Create**.
+   - Clone URL: `https://github.com/denisptra/infoscreening.git`
+   - Repository Path: `/home/mcodgrfd/apps/next` (sesuaikan dengan path aplikasi kamu)
+   - Setelah dibuat, buka **Terminal**:
+     ```sh
+     cd ~/apps/next
+     git fetch origin deploy
+     git checkout deploy
+     ```
+2. Salin `.env` dan upload dari instalasi lama:
+   ```sh
+   cp /path/lama/.env ~/apps/next/.env
+   cp -a /path/lama/storage/. ~/apps/next/storage/
+   ```
+3. Di cPanel → **Domains** → `next.infoscreening.id` → **Document Root**, arahkan ke `/home/mcodgrfd/apps/next/public` (folder `public`, bukan folder aplikasi). Aktifkan AutoSSL/HTTPS.
+4. Buat script deploy:
+   ```sh
+   mkdir -p ~/bin ~/logs
+   nano ~/bin/deploy-infoscreening.sh
+   ```
+   Isi (sesuaikan `PHP_BIN` dan `GIT_BIN` dengan hasil `which php` dan `which git`):
+   ```sh
+   #!/bin/bash
+   set -u
+
+   APP_DIR="/home/mcodgrfd/apps/next"
+   PHP_BIN="/usr/local/bin/php"
+   GIT_BIN="/usr/bin/git"
+   LOG="/home/mcodgrfd/logs/deploy-infoscreening.log"
+
+   cd "$APP_DIR" || exit 1
+
+   BEFORE=$("$GIT_BIN" rev-parse HEAD 2>/dev/null || echo none)
+   "$GIT_BIN" fetch origin deploy >>"$LOG" 2>&1 || exit 1
+   "$GIT_BIN" reset --hard origin/deploy >>"$LOG" 2>&1 || exit 1
+   AFTER=$("$GIT_BIN" rev-parse HEAD)
+
+   [ "$BEFORE" = "$AFTER" ] && exit 0
+
+   echo "Deploy $AFTER $(date)" >>"$LOG"
+   "$PHP_BIN" artisan migrate --force >>"$LOG" 2>&1
+   "$PHP_BIN" artisan optimize:clear >>"$LOG" 2>&1
+   "$PHP_BIN" artisan config:cache >>"$LOG" 2>&1
+   "$PHP_BIN" artisan view:cache >>"$LOG" 2>&1
+   "$PHP_BIN" artisan route:cache >>"$LOG" 2>&1
+   "$PHP_BIN" artisan storage:link >>"$LOG" 2>&1 || true
+   ```
+   ```sh
+   chmod +x ~/bin/deploy-infoscreening.sh
+   ```
+5. Tambah cron di cPanel → **Cron Jobs**:
+   ```
+   */5 * * * * /bin/bash /home/mcodgrfd/bin/deploy-infoscreening.sh >/dev/null 2>&1
+   ```
+6. Jalankan sekali dan cek log:
+   ```sh
+   bash ~/bin/deploy-infoscreening.sh
+   tail -n 50 ~/logs/deploy-infoscreening.log
+   ```
+
+Catatan:
+
+- `.env` dan upload di `storage/` tidak ikut di branch `deploy`, jadi tidak tertimpa.
+- Jangan edit file aplikasi langsung di server; perubahan akan hilang saat cron berikutnya.
+- Rollback: `git reset --hard <commit-lama>` di folder aplikasi, lalu jalankan ulang script.
+- Pastikan `.env` server memakai `APP_ENV=production`, `APP_DEBUG=false`, `APP_URL=https://next.infoscreening.id`, `LOG_LEVEL=warning`, dan `FILESYSTEM_DISK=public`. Untuk SMTP port 587 gunakan `MAIL_SCHEME=smtp`; untuk port 465 gunakan `MAIL_SCHEME=smtps`.

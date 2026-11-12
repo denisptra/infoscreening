@@ -23,6 +23,8 @@ use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\TagController;
+use App\Models\Category;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 
 // Public front-facing portal routes
@@ -35,7 +37,7 @@ Route::get('/artikel/{article:slug}', [ArticleController::class, 'show'])->name(
 // Categories
 Route::get('/kategori', [CategoryController::class, 'index'])->name('categories.index');
 Route::get('/kategori/{category:slug}', [CategoryController::class, 'show'])->name('categories.show');
-Route::get('/category/{category:slug}', function (\App\Models\Category $category) {
+Route::get('/category/{category:slug}', function (Category $category) {
     return redirect()->route('categories.show', ['category' => $category], 301);
 });
 Route::redirect('/category', '/kategori', 301);
@@ -95,6 +97,12 @@ Route::prefix('strapi')
 
         Route::resource('articles', AdminArticleController::class)->except(['show']);
 
+        // Media Library: terbuka untuk semua peran redaksi agar bisa melampirkan gambar artikel
+        Route::post('media', [AdminMediaController::class, 'store'])
+            ->middleware('throttle:20,1')
+            ->name('media.store');
+        Route::resource('media', AdminMediaController::class)->except(['create', 'edit', 'update', 'store']);
+
         // Content Manager Collections & Tampilan Navigasi: bisa diakses oleh Super Admin & Admin (Redaksi)
         Route::middleware('role:super_admin,admin')->group(function () {
             Route::resource('categories', AdminCategoryController::class)->except(['show']);
@@ -102,10 +110,6 @@ Route::prefix('strapi')
             Route::resource('events', AdminEventController::class)->except(['show']);
             Route::resource('experts', AdminExpertController::class)->except(['show']);
             Route::resource('products', AdminProductController::class)->except(['show']);
-            Route::post('media', [AdminMediaController::class, 'store'])
-                ->middleware('throttle:20,1')
-                ->name('media.store');
-            Route::resource('media', AdminMediaController::class)->except(['create', 'edit', 'update', 'store']);
             Route::resource('contributions', AdminContributionController::class)->only(['index', 'show', 'update', 'destroy']);
 
             // Navigasi & Tampilan Footer
@@ -115,7 +119,8 @@ Route::prefix('strapi')
             Route::put('appearance/footer', [AdminSiteAppearanceController::class, 'updateFooter'])
                 ->name('appearance.footer.update');
             Route::post('settings/clear-cache', function () {
-                \Illuminate\Support\Facades\Artisan::call('optimize:clear');
+                Artisan::call('optimize:clear');
+
                 return back()->with('status', 'Cache sistem berhasil dibersihkan.');
             })->name('settings.clear-cache');
         });

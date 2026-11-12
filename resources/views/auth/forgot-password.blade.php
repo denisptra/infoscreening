@@ -1,6 +1,6 @@
 <x-guest-layout>
     <div class="mb-4 text-sm text-gray-600">
-        {{ __('Forgot your password? No problem. Just let us know your email address and we will send a password reset link if email delivery is configured.') }}
+        {{ __('Lupa password? Masukkan email akun Anda. Kami akan mengirimkan tautan untuk membuat password baru.') }}
     </div>
 
     @if (config('mail.default') === 'log')
@@ -22,10 +22,18 @@
             <x-input-error :messages="$errors->get('email')" class="mt-2" />
         </div>
 
-        <div class="flex items-center justify-end mt-4">
+        <div class="mt-4 flex items-center justify-between">
+            <a class="text-sm text-gray-600 underline hover:text-gray-900" href="{{ route('login') }}">
+                {{ __('Kembali ke halaman login') }}
+            </a>
+
             <x-primary-button>
-                {{ __('Email Password Reset Link') }}
+                {{ __('Kirim tautan reset') }}
             </x-primary-button>
         </div>
+
+        <p class="mt-4 text-xs text-gray-500">
+            {{ __('Tautan berlaku selama 60 menit. Jika email tidak masuk, cek folder spam atau hubungi Super Admin untuk memastikan mailbox aktif.') }}
+        </p>
     </form>
 </x-guest-layout>

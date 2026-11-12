@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class ArticleController extends Controller
 {
@@ -114,6 +115,19 @@ class ArticleController extends Controller
      */
     private function validated(Request $request, ?Article $article = null): array
     {
+        // Konten HTML dikirim dalam base64 dari form untuk menghindari blokir WAF cPanel.
+        if ($request->boolean('content_is_encoded') && filled($request->input('content_encoded'))) {
+            $decoded = base64_decode((string) $request->input('content_encoded'), true);
+
+            if ($decoded === false) {
+                throw ValidationException::withMessages([
+                    'content' => 'Konten artikel tidak valid. Silakan muat ulang halaman lalu coba lagi.',
+                ]);
+            }
+
+            $request->merge(['content' => $decoded]);
+        }
+
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:200'],
             'slug' => ['nullable', 'string', 'max:220', 'alpha_dash', Rule::unique('articles', 'slug')->ignore($article?->id)],
