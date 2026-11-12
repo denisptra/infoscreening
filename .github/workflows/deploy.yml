@@ -46,7 +46,7 @@ jobs:
 
       - name: 6. Build frontend assets (Vite)
         run: |
-          npm ci
+          npm install --no-audit --no-fund
           npm run build
 
       - name: 7. Bersihkan file non-produksi
