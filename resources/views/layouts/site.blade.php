@@ -115,7 +115,7 @@
                                     :aria-expanded="open.toString()"
                                     aria-haspopup="true"
                                     aria-controls="desktop-menu-{{ $menuKey }}"
-                                    class="inline-flex items-center gap-1.5 py-2 transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 {{ $isItemActive ? 'text-white font-bold' : 'text-white/85 hover:text-white' }}"
+                                    class="inline-flex items-center gap-1.5 py-2 transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 {{ $isItemActive ? 'text-white font-semibold' : 'text-white/85 hover:text-white' }}"
                                 >
                                     <span>{{ $item->label }}</span>
                                     <i class="fas fa-chevron-down text-[9px] transition-transform duration-200" :class="open ? 'rotate-180' : ''" aria-hidden="true"></i>
@@ -125,7 +125,7 @@
                                     href="{{ $item->url }}"
                                     @if ($item->open_in_new_tab) target="_blank" rel="noopener noreferrer" @endif
                                     @if ($isItemActive) aria-current="page" @endif
-                                    class="inline-flex items-center py-2 transition duration-200 {{ $isItemActive ? 'text-white font-bold' : 'text-white/85 hover:text-white' }}"
+                                    class="inline-flex items-center py-2 transition duration-200 {{ $isItemActive ? 'text-white font-semibold' : 'text-white/85 hover:text-white' }}"
                                 >{{ $item->label }}</a>
                             @else
                                 <span class="inline-flex items-center py-2">{{ $item->label }}</span>
@@ -213,7 +213,7 @@
                             @if ($item->open_in_new_tab) target="_blank" rel="noopener noreferrer" @endif
                             @if ($isItemActive) aria-current="page" @endif
                             @click="mobileMenu = false"
-                            class="block py-2 transition {{ $isItemActive ? 'text-white font-bold' : 'text-white/90 hover:text-white' }}"
+                            class="block py-2 transition {{ $isItemActive ? 'text-white font-semibold' : 'text-white/90 hover:text-white' }}"
                         >{{ $item->label }}</a>
                     @else
                         <span class="block py-2 text-white/90">{{ $item->label }}</span>

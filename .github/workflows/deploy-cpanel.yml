@@ -1,0 +1,68 @@
+name: Auto Deploy to cPanel
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-cpanel-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build & Deploy ke cPanel
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3 & Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+
+      - name: Install production PHP dependencies
+        run: composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install NPM dependencies & build Vite assets
+        run: |
+          npm ci
+          npm run build
+
+      - name: Generate deploy info marker
+        run: |
+          echo "commit=${GITHUB_SHA}" > public/deploy-info.txt
+          echo "deployed_at=$(TZ=Asia/Jakarta date '+%Y-%m-%d %H:%M:%S WIB')" >> public/deploy-info.txt
+
+      - name: Sync files to cPanel via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ secrets.FTP_TARGET_DIR || './' }}
+          exclude: |
+            **/.git*
+            **/.git*/**
+            node_modules/**
+            tests/**
+            deploy/**
+            deploy.zip
+            .env
+            .env.*
+            storage/**
+            bootstrap/cache/*.php
+            database/*.sqlite
+            database/*.sql
+            database/*.zip
+            import_per_table/**
