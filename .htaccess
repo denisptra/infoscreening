@@ -1,0 +1,30 @@
+<IfModule mod_negotiation.c>
+    Options -MultiViews -Indexes
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Keamanan: Blokir akses langsung ke dotfiles (.env, .git, .htaccess, dll) kecuali .well-known
+    RewriteRule (^|/)\.(?!well-known/) - [F,L]
+
+    # Keamanan: Blokir akses langsung ke direktori internal Laravel & dependency
+    RewriteRule ^(app|bootstrap|config|database|resources|routes|tests|vendor|node_modules|deploy|import_per_table)(/|$) - [F,L]
+    RewriteRule ^storage/?$ - [F,L]
+    RewriteRule ^storage/(app|framework|logs)(/|$) - [F,L]
+
+    # Keamanan: Blokir akses langsung ke file konfigurasi, SQL dump, log, dan CLI
+    RewriteRule ^(composer\.(json|lock)|package(-lock)?\.json|phpunit\.xml|artisan|vite\.config\.js|tailwind\.config\.js|postcss\.config\.js|render\.yaml|README\.md|CHANGELOG\.md)$ - [F,L]
+    RewriteRule \.(sql|log|bak|old|sh)$ - [F,L]
+
+    # Teruskan Authorization & X-XSRF-Token header ke PHP
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    RewriteCond %{HTTP:x-xsrf-token} .
+    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
+
+    # Arahkan semua request ke folder public/ jika Document Root cPanel menunjuk ke project root
+    RewriteRule ^$ public/index.php [L]
+    RewriteRule ^((?!public/).*)$ public/$1 [L]
+</IfModule>
