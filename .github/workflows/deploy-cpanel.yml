@@ -8,7 +8,7 @@ on:
 
 concurrency:
   group: deploy-cpanel-production
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -18,15 +18,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Setup PHP 8.3 & Composer
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          tools: composer:v2
-
-      - name: Install production PHP dependencies
-        run: composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -55,6 +46,7 @@ jobs:
             **/.git*
             **/.git*/**
             node_modules/**
+            vendor/**
             tests/**
             deploy/**
             deploy.zip
