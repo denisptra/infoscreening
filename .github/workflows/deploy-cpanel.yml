@@ -60,6 +60,8 @@ jobs:
             deploy.zip
             .env
             .env.*
+            public/storage
+            public/storage/**
             storage/**
             bootstrap/cache/*.php
             database/*.sqlite
