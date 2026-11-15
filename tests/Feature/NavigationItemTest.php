@@ -15,56 +15,33 @@ class NavigationItemTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_super_admin_can_create_a_dropdown_menu_and_publish_it_on_the_site(): void
+    public function test_site_navbar_is_fixed_and_article_dropdown_lists_all_categories_with_correct_links(): void
     {
-        $superAdmin = User::factory()->superAdmin()->create();
+        $catA = Category::query()->create(['name' => 'Berita Film', 'slug' => 'berita-film', 'color' => '#ba233b']);
+        $catB = Category::query()->create(['name' => 'Festival Film', 'slug' => 'festival-film', 'color' => '#7344ff']);
+        $catC = Category::query()->create(['name' => 'Wawancara Sineas', 'slug' => 'wawancara-sineas', 'color' => '#16807a']);
 
-        $this->actingAs($superAdmin)->post('/strapi/navigation', [
-            'label' => 'Program Baru',
-            'location' => 'header',
-            'url' => '/program',
-            'sort_order' => 80,
-            'is_active' => true,
-        ])->assertRedirect('/strapi/navigation');
+        $response = $this->get('/');
 
-        $parent = NavigationItem::query()->where('label', 'Program Baru')->firstOrFail();
+        $response->assertOk()
+            ->assertSee('Beranda')
+            ->assertSee('Artikel')
+            ->assertSee('/artikel', false)
+            ->assertSee('Kalender')
+            ->assertSee('/events', false)
+            ->assertSee('Rupa Jasa')
+            ->assertSee('Tentang')
+            ->assertSee('/tentang-kami', false)
+            ->assertSee('Kontak')
+            ->assertSee('/kontak', false);
 
-        $this->actingAs($superAdmin)->post('/strapi/navigation', [
-            'label' => 'Festival Mendatang',
-            'location' => 'header',
-            'parent_id' => $parent->id,
-            'url' => '/events',
-            'sort_order' => 10,
-            'is_active' => true,
-        ])->assertRedirect('/strapi/navigation');
-
-        $this->assertDatabaseHas('navigation_items', [
-            'parent_id' => $parent->id,
-            'label' => 'Festival Mendatang',
-            'url' => '/events',
-            'is_active' => true,
-        ]);
-
-        $this->get('/')->assertOk()->assertSee('Festival Mendatang');
+        foreach ([$catA, $catB, $catC] as $category) {
+            $response->assertSee($category->name)
+                ->assertSee(route('categories.show', ['category' => $category], false), false);
+        }
     }
 
-    public function test_super_admin_can_customize_footer_text(): void
-    {
-        $superAdmin = User::factory()->superAdmin()->create();
-
-        $this->actingAs($superAdmin)->put('/strapi/appearance/footer', [
-            'footer_about' => 'Keterangan footer yang disesuaikan.',
-            'footer_copyright' => 'Infoscreening Studio',
-        ])->assertRedirect('/strapi/navigation');
-
-        $this->assertDatabaseHas('site_settings', [
-            'key' => 'footer_about',
-            'value' => 'Keterangan footer yang disesuaikan.',
-        ]);
-        $this->get('/')->assertOk()->assertSee('Keterangan footer yang disesuaikan.');
-    }
-
-    public function test_default_taxonomy_is_seeded_and_linked_from_the_article_dropdown(): void
+    public function test_default_taxonomy_is_seeded_and_shown_in_navbar_dropdown_and_dashboard(): void
     {
         Category::query()->create([
             'name' => 'Kategori Lain',
@@ -72,47 +49,23 @@ class NavigationItemTest extends TestCase
         ]);
         $this->seed(DefaultTaxonomySeeder::class);
 
-        $this->assertDatabaseHas('categories', [
-            'name' => 'Berita Film',
-            'slug' => 'berita-film',
-        ]);
-        $this->assertDatabaseHas('tags', [
-            'name' => 'Film Pendek',
-            'slug' => 'film-pendek',
-        ]);
-
-        $articleMenu = NavigationItem::query()
-            ->where('location', 'header')
-            ->where('label', 'Artikel')
-            ->firstOrFail();
-        $footerMenu = NavigationItem::query()
-            ->where('location', 'footer')
-            ->where('label', 'Rubrikasi Artikel')
-            ->firstOrFail();
+        $this->assertDatabaseHas('categories', ['name' => 'Berita Film', 'slug' => 'berita-film']);
+        $this->assertDatabaseHas('tags', ['name' => 'Film Pendek', 'slug' => 'film-pendek']);
 
         $categories = Category::query()
             ->whereIn('slug', ['berita-film', 'festival-film', 'wawancara-sineas', 'kritik-film', 'pemutaran-film'])
             ->get();
         $this->assertCount(5, $categories);
 
-        foreach ($categories as $category) {
-            $this->assertDatabaseHas('navigation_items', [
-                'parent_id' => $articleMenu->id,
-                'label' => $category->name,
-                'url' => '/kategori/'.$category->slug,
-            ]);
-            $this->assertDatabaseHas('navigation_items', [
-                'parent_id' => $footerMenu->id,
-                'label' => $category->name,
-                'url' => '/kategori/'.$category->slug,
-            ]);
-        }
-
-        $this->get('/')
-            ->assertOk()
+        $home = $this->get('/');
+        $home->assertOk()
             ->assertSee('Berita Film')
-            ->assertSee('/kategori/berita-film')
+            ->assertSee('/kategori/berita-film', false)
             ->assertSee('#Film Pendek');
+
+        foreach ($categories as $category) {
+            $home->assertSee('/kategori/'.$category->slug, false);
+        }
 
         $this->get(route('categories.show', ['category' => 'berita-film']))->assertOk();
 
@@ -123,8 +76,7 @@ class NavigationItemTest extends TestCase
             ->assertSee('Rubrik Artikel')
             ->assertSee('Berita Film')
             ->assertSee('Topik Pilihan')
-            ->assertSee('#Film Pendek')
-            ->assertDontSee('Kategori Lain');
+            ->assertSee('#Film Pendek');
     }
 
     public function test_default_taxonomy_seeder_preserves_custom_category_and_menu_labels(): void
@@ -155,9 +107,9 @@ class NavigationItemTest extends TestCase
         $this->assertSame(1, Category::query()->where('slug', 'berita-film')->count());
     }
 
-    public function test_footer_combines_static_links_with_dynamic_categories_tags_and_cms_menu(): void
+    public function test_footer_shows_fixed_structure_with_categories_and_tags(): void
     {
-        $admin = User::factory()->admin()->create();
+        $admin = User::factory()->superAdmin()->create();
         $category = Category::query()->create([
             'name' => 'Festival Film',
             'slug' => 'festival-film',
@@ -178,21 +130,6 @@ class NavigationItemTest extends TestCase
         $article->categories()->attach($category);
         $article->tags()->attach($tag);
 
-        $footerGroup = NavigationItem::query()->create([
-            'location' => 'footer',
-            'label' => 'Ruang Komunitas',
-            'sort_order' => 1,
-            'is_active' => true,
-        ]);
-        NavigationItem::query()->create([
-            'parent_id' => $footerGroup->id,
-            'location' => 'footer',
-            'label' => 'Kirim Naskah',
-            'url' => '/berkontribusi',
-            'sort_order' => 1,
-            'is_active' => true,
-        ]);
-
         $response = $this->get('/');
 
         $response->assertOk()
@@ -200,7 +137,7 @@ class NavigationItemTest extends TestCase
             ->assertSee('Festival Film')
             ->assertSee(route('categories.show', ['category' => $category]), false)
             ->assertSee('Ekosistem Sinema')
-            ->assertSee('Kirim Naskah')
+            ->assertSee('Kirim Liputan / Naskah')
             ->assertSee('Topik Pilihan')
             ->assertSee('#Sinema Rabu')
             ->assertSee(route('tags.show', ['tag' => $tag]), false)
@@ -224,25 +161,11 @@ class NavigationItemTest extends TestCase
         ]);
     }
 
-    public function test_editorial_admin_can_access_and_manage_navigation(): void
+    public function test_editorial_admin_cannot_access_navigation_and_gets_404(): void
     {
         $admin = User::factory()->admin()->create();
 
-        $this->actingAs($admin)->get('/strapi/navigation')->assertOk();
-
-        $this->actingAs($admin)->post('/strapi/navigation', [
-            'label' => 'Kategori Khusus',
-            'location' => 'header',
-            'url' => '/category/film-indonesia',
-            'sort_order' => 90,
-            'is_active' => true,
-        ])->assertRedirect('/strapi/navigation');
-
-        // URL /category/ should automatically normalize to /kategori/
-        $this->assertDatabaseHas('navigation_items', [
-            'label' => 'Kategori Khusus',
-            'url' => '/kategori/film-indonesia',
-        ]);
+        $this->actingAs($admin)->get('/strapi/navigation')->assertNotFound();
     }
 
     public function test_legacy_category_url_redirects_301_to_kategori(): void
@@ -263,7 +186,7 @@ class NavigationItemTest extends TestCase
 
     public function test_normalizing_urls_converts_category_to_kategori(): void
     {
-        $admin = User::factory()->admin()->create();
+        $admin = User::factory()->superAdmin()->create();
 
         $item = NavigationItem::query()->create([
             'label' => 'Test Legacy Category',

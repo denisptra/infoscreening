@@ -101,7 +101,9 @@ Route::prefix('strapi')
         Route::post('media', [AdminMediaController::class, 'store'])
             ->middleware('throttle:20,1')
             ->name('media.store');
-        Route::resource('media', AdminMediaController::class)->except(['create', 'edit', 'update', 'store']);
+        Route::resource('media', AdminMediaController::class)
+            ->parameters(['media' => 'media'])
+            ->except(['create', 'edit', 'update', 'store']);
 
         // Content Manager Collections & Tampilan Navigasi: bisa diakses oleh Super Admin & Admin (Redaksi)
         Route::middleware('role:super_admin,admin')->group(function () {
@@ -111,7 +113,10 @@ Route::prefix('strapi')
             Route::resource('experts', AdminExpertController::class)->except(['show']);
             Route::resource('products', AdminProductController::class)->except(['show']);
             Route::resource('contributions', AdminContributionController::class)->only(['index', 'show', 'update', 'destroy']);
+        });
 
+        // Pengaturan Sistem, Navigasi & Konfigurasi Lanjutan: Khusus Super Admin
+        Route::middleware('role:super_admin')->group(function () {
             // Navigasi & Tampilan Footer
             Route::post('navigation/normalize-urls', [AdminNavigationItemController::class, 'normalizeUrls'])
                 ->name('navigation.normalize-urls');
@@ -123,10 +128,7 @@ Route::prefix('strapi')
 
                 return back()->with('status', 'Cache sistem berhasil dibersihkan.');
             })->name('settings.clear-cache');
-        });
 
-        // Pengaturan Sistem & Konfigurasi Lanjutan: Khusus Super Admin
-        Route::middleware('role:super_admin')->group(function () {
             Route::get('content-types', [AdminContentTypeBuilderController::class, 'index'])->name('content-types.index');
             Route::get('settings', [AdminSettingsController::class, 'index'])->name('settings.index');
             Route::post('settings/tokens', [AdminSettingsController::class, 'createToken'])
@@ -143,5 +145,19 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
+
+// Fallback media publik saat symlink public/storage belum tersedia (misal cPanel tanpa terminal)
+Route::get('/storage/{path}', function (string $path) {
+    if (str_contains($path, '..') || str_contains($path, '\\')) {
+        abort(404);
+    }
+
+    $disk = \Illuminate\Support\Facades\Storage::disk('public');
+    abort_unless($disk->exists($path), 404);
+
+    return $disk->response($path, null, [
+        'Cache-Control' => 'public, max-age=31536000',
+    ]);
+})->where('path', '.*')->name('storage.public');
 
 require __DIR__.'/auth.php';

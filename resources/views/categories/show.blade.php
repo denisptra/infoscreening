@@ -6,12 +6,12 @@
 @section('content')
 <div class="space-y-8">
     <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/80 shadow-card">
-        <nav class="text-xs text-slate-400 mb-2 flex items-center gap-1.5 font-normal">
+        <nav aria-label="Breadcrumb" class="text-xs text-slate-600 mb-2 flex items-center gap-1.5 font-normal">
             <a href="{{ route('home') }}" class="hover:text-[#3A07BB]">Home</a>
-            <i class="fas fa-angle-right text-[10px]"></i>
+            <i class="fas fa-angle-right text-[10px]" aria-hidden="true"></i>
             <a href="{{ route('categories.index') }}" class="hover:text-[#3A07BB]">Kategori</a>
-            <i class="fas fa-angle-right text-[10px]"></i>
-            <span class="text-[#3A07BB] font-medium">{{ $category->name }}</span>
+            <i class="fas fa-angle-right text-[10px]" aria-hidden="true"></i>
+            <span class="text-[#3A07BB] font-medium" aria-current="page">{{ $category->name }}</span>
         </nav>
         <span class="badge-cat mb-2">Kategori</span>
         <h1 class="font-sans font-semibold text-2xl sm:text-3xl text-slate-900 tracking-tight">
@@ -30,9 +30,9 @@
                         <a href="{{ route('articles.show', ['article' => $article]) }}">
                             <img loading="lazy" decoding="async" src="{{ $article->image_url }}" alt="{{ $article->title }}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
                         </a>
-                        <div class="absolute bottom-2.5 right-2.5 bg-black/60 backdrop-blur-xs text-white text-[10px] font-normal px-2 py-0.5 rounded-md flex items-center gap-1">
-                            <i class="far fa-eye text-[9px]"></i>
-                            <span>{{ number_format($article->views) }}</span>
+                        <div class="absolute bottom-2.5 right-2.5 bg-black/70 backdrop-blur-xs text-white text-[10px] font-normal px-2 py-0.5 rounded-md flex items-center gap-1">
+                            <i class="far fa-eye text-[9px]" aria-hidden="true"></i>
+                            <span class="font-mono tabular-nums">{{ number_format($article->views) }}</span>
                         </div>
                     </div>
 
@@ -42,23 +42,27 @@
                                 {{ $article->title }}
                             </a>
                         </h2>
-                        <p class="text-xs text-slate-500 line-clamp-3 leading-relaxed font-normal">
+                        <p class="text-xs text-slate-600 line-clamp-3 leading-relaxed font-normal">
                             {{ $article->excerpt }}
                         </p>
                     </div>
                 </div>
 
                 <div class="p-5 pt-0">
-                    <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-normal whitespace-nowrap">
-                        <span>{{ $article->author->name ?? 'Redaksi' }}</span>
-                        <time>{{ $article->published_at?->translatedFormat('d M Y') }}</time>
+                    <div class="pt-3 border-t border-slate-100 flex items-center justify-between gap-3 text-[11px] text-slate-600 font-normal">
+                        <span class="truncate min-w-0">{{ $article->legacy_author_name ?: ($article->author->name ?? 'Redaksi') }}</span>
+                        <time class="shrink-0">{{ $article->published_at?->translatedFormat('d M Y') }}</time>
                     </div>
                 </div>
             </article>
         @empty
-            <div class="col-span-full bg-white p-12 text-center rounded-2xl border border-slate-200/80">
-                <i class="far fa-folder-open text-4xl text-slate-300 mb-3 block"></i>
-                <p class="text-xs text-slate-500 font-normal">Belum ada artikel dalam kategori ini.</p>
+            <div class="col-span-full bg-white p-12 text-center rounded-2xl border border-slate-200/80 space-y-3">
+                <i class="far fa-folder-open text-4xl text-slate-400 block" aria-hidden="true"></i>
+                <p class="text-xs text-slate-600 font-normal">Belum ada artikel dalam kategori ini.</p>
+                <a href="{{ route('categories.index') }}" class="inline-flex items-center gap-1.5 text-xs font-medium text-[#3A07BB] hover:underline">
+                    <span>Jelajahi kategori lainnya</span>
+                    <i class="fas fa-arrow-right text-[10px]" aria-hidden="true"></i>
+                </a>
             </div>
         @endforelse
     </div>

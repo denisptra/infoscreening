@@ -48,7 +48,7 @@
 
                 <div class="p-5 pt-0">
                     <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-normal whitespace-nowrap">
-                        <span>{{ $article->author->name ?? 'Redaksi' }}</span>
+                        <span>{{ $article->legacy_author_name ?: ($article->author->name ?? 'Redaksi') }}</span>
                         <time>{{ $article->published_at?->translatedFormat('d M Y') }}</time>
                     </div>
                 </div>

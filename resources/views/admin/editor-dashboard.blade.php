@@ -39,8 +39,6 @@
         @endforeach
     </div>
 
-    @include('admin.partials.role-access')
-
     <section class="overflow-hidden rounded-xl border border-[#eaeaef] bg-white">
         <div class="flex items-center justify-between border-b border-[#eaeaef] p-5">
             <div>

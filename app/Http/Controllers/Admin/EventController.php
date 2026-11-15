@@ -82,9 +82,7 @@ class EventController extends Controller
             'starts_at' => ['required', 'date'],
             'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
             'url' => ['nullable', 'url', 'max:255'],
-            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096'],
-            'direct_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096'],
-            'image_url' => ['nullable', 'url', 'max:500'],
+            ...$this->imagePickerRules($request, 'image'),
         ]);
 
         unset($data['image'], $data['direct_image'], $data['image_url']);

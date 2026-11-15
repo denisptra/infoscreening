@@ -30,6 +30,12 @@
     <!-- Hidden input that carries the selected asset value (storage path or URL) -->
     <input type="hidden" :name="fieldName" :value="currentValue">
     <input type="hidden" :name="fieldName + '_url'" :value="currentUrl">
+    @error($name)
+        <p class="text-xs text-red-600">{{ $message }}</p>
+    @enderror
+    @error('direct_' . $name)
+        <p class="text-xs text-red-600">{{ $message }}</p>
+    @enderror
 
     <!-- Selected Asset Preview (Strapi style) -->
     <template x-if="currentUrl">

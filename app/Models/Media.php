@@ -34,11 +34,11 @@ class Media extends Model
     {
         return Attribute::make(
             get: function (): string {
-                if (Str::startsWith($this->file_path, ['http://', 'https://', '//'])) {
+                if (Str::startsWith($this->file_path, ['http://', 'https://', '//', '/'])) {
                     return $this->file_path;
                 }
 
-                return Storage::url($this->file_path);
+                return '/storage/'.ltrim($this->file_path, '/');
             }
         );
     }

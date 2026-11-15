@@ -86,8 +86,8 @@
 
                 <!-- Left: Hamburger (Mobile) + Enhanced Transparent Logo -->
                 <div class="flex items-center gap-3 shrink-0">
-                    <button @click="mobileMenu = !mobileMenu" class="lg:hidden p-2 text-white/90 hover:text-white hover:bg-white/10 rounded-lg transition focus:outline-none" aria-label="Menu">
-                        <i class="fas" :class="mobileMenu ? 'fa-xmark text-lg' : 'fa-bars text-lg'"></i>
+                    <button @click="mobileMenu = !mobileMenu" :aria-expanded="mobileMenu.toString()" class="lg:hidden p-2 text-white/90 hover:text-white hover:bg-white/10 rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70" aria-label="Menu">
+                        <i class="fas" :class="mobileMenu ? 'fa-xmark text-lg' : 'fa-bars text-lg'" aria-hidden="true"></i>
                     </button>
 
                     <a href="{{ route('home') }}" class="flex items-center gap-2 group py-1">
@@ -97,40 +97,53 @@
                 </div>
 
                 <!-- Center: Desktop Horizontal Menu -->
-                <nav class="hidden lg:flex items-center space-x-2 text-[13px] font-normal text-white/80 whitespace-nowrap">
+                <nav class="hidden lg:flex items-center gap-6 text-[13px] font-normal text-white/85 whitespace-nowrap">
                     @foreach ($headerMenuItems as $item)
+                        @php
+                            $menuKey = $item->id ?? $loop->index;
+                            $itemPath = $item->url ? ltrim(parse_url($item->url, PHP_URL_PATH) ?: '', '/') : null;
+                            $isItemActive = $itemPath !== null && ($itemPath === '' ? request()->is('/') : (request()->is($itemPath) || request()->is($itemPath.'/*')));
+                            if (! $isItemActive && $item->label === 'Artikel' && request()->is('kategori*')) {
+                                $isItemActive = true;
+                            }
+                        @endphp
                         <div class="relative" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false">
-                            <div class="flex items-center">
-                                @if ($item->url)
-                                    <a
-                                        href="{{ $item->url }}"
-                                        @if ($item->open_in_new_tab) target="_blank" rel="noopener noreferrer" @endif
-                                        class="py-2 px-2.5 transition duration-200 hover:text-white"
-                                    >{{ $item->label }}</a>
-                                @elseif ($item->children->isNotEmpty())
-                                    <button type="button" @click="open = !open" :aria-expanded="open.toString()" aria-haspopup="true" aria-controls="desktop-menu-{{ $item->id }}" class="py-2 px-2.5 transition duration-200 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 rounded-md">
-                                        {{ $item->label }}
-                                        <i class="fas fa-chevron-down ml-1 text-[9px] transition-transform duration-200" :class="open ? 'rotate-180' : ''"></i>
-                                    </button>
-                                @else
-                                    <span class="py-2 px-2.5">{{ $item->label }}</span>
-                                @endif
-
-                                @if ($item->children->isNotEmpty() && $item->url)
-                                    <button type="button" @click="open = !open" :aria-expanded="open.toString()" aria-haspopup="true" aria-controls="desktop-menu-{{ $item->id }}" aria-label="Buka submenu {{ $item->label }}" class="py-2 pr-2.5 text-white/80 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 rounded-md">
-                                        <i class="fas fa-chevron-down text-[9px] transition-transform duration-200" :class="open ? 'rotate-180' : ''"></i>
-                                    </button>
-                                @endif
-                            </div>
                             @if ($item->children->isNotEmpty())
-                                <div id="desktop-menu-{{ $item->id }}" x-show="open" x-cloak x-transition.origin.top.right class="absolute right-0 top-full z-50 w-56">
-                                    <div class="overflow-hidden rounded-xl border border-slate-100 bg-white py-2 text-xs text-slate-700 shadow-xl">
+                                <button
+                                    type="button"
+                                    @click="open = !open"
+                                    :aria-expanded="open.toString()"
+                                    aria-haspopup="true"
+                                    aria-controls="desktop-menu-{{ $menuKey }}"
+                                    class="inline-flex items-center gap-1.5 py-2 transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 {{ $isItemActive ? 'text-white font-bold' : 'text-white/85 hover:text-white' }}"
+                                >
+                                    <span>{{ $item->label }}</span>
+                                    <i class="fas fa-chevron-down text-[9px] transition-transform duration-200" :class="open ? 'rotate-180' : ''" aria-hidden="true"></i>
+                                </button>
+                            @elseif ($item->url)
+                                <a
+                                    href="{{ $item->url }}"
+                                    @if ($item->open_in_new_tab) target="_blank" rel="noopener noreferrer" @endif
+                                    @if ($isItemActive) aria-current="page" @endif
+                                    class="inline-flex items-center py-2 transition duration-200 {{ $isItemActive ? 'text-white font-bold' : 'text-white/85 hover:text-white' }}"
+                                >{{ $item->label }}</a>
+                            @else
+                                <span class="inline-flex items-center py-2">{{ $item->label }}</span>
+                            @endif
+                            @if ($item->children->isNotEmpty())
+                                <div id="desktop-menu-{{ $menuKey }}" x-show="open" x-cloak x-transition.origin.top.left class="absolute left-0 top-full pt-1.5 z-50 w-56">
+                                    <div class="rounded-xl border border-slate-100 bg-white py-2 text-xs text-slate-700 shadow-xl">
                                         @foreach ($item->children as $child)
                                             @if ($child->url)
+                                                @php
+                                                    $childPath = ltrim(parse_url($child->url, PHP_URL_PATH) ?: '', '/');
+                                                    $isChildActive = $childPath === '' ? request()->is('/') : (request()->is($childPath) || ($childPath !== 'kategori' && request()->is($childPath.'/*')));
+                                                @endphp
                                                 <a
                                                     href="{{ $child->url }}"
                                                     @if ($child->open_in_new_tab) target="_blank" rel="noopener noreferrer" @endif
-                                                    class="block px-4 py-2 text-slate-600 transition hover:bg-slate-50 hover:text-[#3A07BB] focus-visible:outline-none focus-visible:bg-slate-50 focus-visible:text-[#3A07BB]"
+                                                    @if ($isChildActive) aria-current="page" @endif
+                                                    class="block px-4 py-2 transition focus-visible:outline-none focus-visible:bg-slate-50 focus-visible:text-[#3A07BB] {{ $isChildActive ? 'text-[#3A07BB] font-semibold' : 'text-slate-600 hover:bg-slate-50 hover:text-[#3A07BB]' }}"
                                                 >{{ $child->label }}</a>
                                             @endif
                                         @endforeach
@@ -149,10 +162,11 @@
                             name="q"
                             value="{{ request('q') }}"
                             placeholder="Cari artikel..."
-                            class="text-xs rounded-full bg-white/10 hover:bg-white/15 focus:bg-white text-white focus:text-slate-800 placeholder-white/60 focus:placeholder-slate-400 border border-white/20 pl-3.5 pr-8 py-1.5 focus:outline-none focus:ring-2 focus:ring-white w-28 sm:w-44 md:w-56 transition-all duration-300 backdrop-blur-sm"
+                            aria-label="Cari artikel"
+                            class="peer text-xs rounded-full bg-white/10 hover:bg-white/15 focus:bg-white text-white focus:text-slate-800 placeholder-white/60 focus:placeholder-slate-400 border border-white/20 pl-3.5 pr-8 py-1.5 focus:outline-none focus:ring-2 focus:ring-white w-32 sm:w-44 md:w-56 transition-all duration-300 backdrop-blur-sm"
                         >
-                        <button type="submit" class="absolute right-2.5 text-white/70 hover:text-white focus:outline-none" title="Cari">
-                            <i class="fas fa-search text-xs"></i>
+                        <button type="submit" aria-label="Cari" class="absolute right-2.5 text-white/70 hover:text-white peer-focus:text-slate-600 peer-focus:hover:text-[#3A07BB] focus:outline-none" title="Cari">
+                            <i class="fas fa-search text-xs" aria-hidden="true"></i>
                         </button>
                     </form>
                 </div>
@@ -169,44 +183,55 @@
             x-transition:leave="transition ease-in duration-150"
             x-transition:leave-start="opacity-100 translate-y-0"
             x-transition:leave-end="opacity-0 -translate-y-2"
-            class="lg:hidden bg-[#24047a]/95 backdrop-blur-xl border-t border-white/10 text-white px-5 py-4 space-y-2 text-sm font-normal shadow-2xl"
+            class="lg:hidden max-h-[calc(100vh-4rem)] overflow-y-auto bg-[#24047a]/95 backdrop-blur-xl border-t border-white/10 text-white px-5 py-4 space-y-2 text-sm font-normal shadow-2xl"
         >
-            <div class="pb-2 border-b border-white/10 flex items-center justify-between">
-                <x-application-logo variant="white" class="h-6 w-auto" />
-            </div>
             @foreach ($headerMenuItems as $item)
+                @php
+                    $menuKey = $item->id ?? $loop->index;
+                    $itemPath = $item->url ? ltrim(parse_url($item->url, PHP_URL_PATH) ?: '', '/') : null;
+                    $isItemActive = $itemPath !== null && ($itemPath === '' ? request()->is('/') : (request()->is($itemPath) || request()->is($itemPath.'/*')));
+                    if (! $isItemActive && $item->label === 'Artikel' && request()->is('kategori*')) {
+                        $isItemActive = true;
+                    }
+                @endphp
                 <div x-data="{ open: false }" @keydown.escape.window="open = false">
-                    <div class="flex items-center justify-between gap-2">
-                        @if ($item->url)
-                            <a
-                                href="{{ $item->url }}"
-                                @if ($item->open_in_new_tab) target="_blank" rel="noopener noreferrer" @endif
-                                @click="mobileMenu = false"
-                                class="block flex-1 py-2 text-white/90 transition hover:text-white"
-                            >{{ $item->label }}</a>
-                        @elseif ($item->children->isNotEmpty())
-                            <button type="button" @click="open = !open" :aria-expanded="open.toString()" aria-haspopup="true" aria-controls="mobile-menu-{{ $item->id }}" class="flex-1 py-2 text-left text-white/90 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 rounded-md">
-                                {{ $item->label }}
-                                <i class="fas fa-chevron-down ml-1 text-[10px] transition-transform" :class="open ? 'rotate-180' : ''"></i>
-                            </button>
-                        @else
-                            <span class="flex-1 py-2 text-white/90">{{ $item->label }}</span>
-                        @endif
-                        @if ($item->children->isNotEmpty() && $item->url)
-                            <button type="button" @click="open = !open" :aria-expanded="open.toString()" aria-haspopup="true" aria-controls="mobile-menu-{{ $item->id }}" aria-label="Buka submenu {{ $item->label }}" class="px-2 py-2 text-white/80 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 rounded-md">
-                                <i class="fas fa-chevron-down text-[10px] transition-transform" :class="open ? 'rotate-180' : ''"></i>
-                            </button>
-                        @endif
-                    </div>
                     @if ($item->children->isNotEmpty())
-                        <div id="mobile-menu-{{ $item->id }}" x-show="open" x-cloak x-transition class="space-y-1 border-l border-white/20 pl-4">
+                        <button
+                            type="button"
+                            @click="open = !open"
+                            :aria-expanded="open.toString()"
+                            aria-haspopup="true"
+                            aria-controls="mobile-menu-{{ $menuKey }}"
+                            class="flex w-full items-center justify-between py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 {{ $isItemActive ? 'text-white font-semibold' : 'text-white/90 hover:text-white' }}"
+                        >
+                            <span>{{ $item->label }}</span>
+                            <i class="fas fa-chevron-down text-[10px] transition-transform" :class="open ? 'rotate-180' : ''" aria-hidden="true"></i>
+                        </button>
+                    @elseif ($item->url)
+                        <a
+                            href="{{ $item->url }}"
+                            @if ($item->open_in_new_tab) target="_blank" rel="noopener noreferrer" @endif
+                            @if ($isItemActive) aria-current="page" @endif
+                            @click="mobileMenu = false"
+                            class="block py-2 transition {{ $isItemActive ? 'text-white font-bold' : 'text-white/90 hover:text-white' }}"
+                        >{{ $item->label }}</a>
+                    @else
+                        <span class="block py-2 text-white/90">{{ $item->label }}</span>
+                    @endif
+                    @if ($item->children->isNotEmpty())
+                        <div id="mobile-menu-{{ $menuKey }}" x-show="open" x-cloak x-transition class="space-y-1 border-l border-white/20 pl-4">
                             @foreach ($item->children as $child)
                                 @if ($child->url)
+                                    @php
+                                        $childPath = ltrim(parse_url($child->url, PHP_URL_PATH) ?: '', '/');
+                                        $isChildActive = $childPath === '' ? request()->is('/') : (request()->is($childPath) || ($childPath !== 'kategori' && request()->is($childPath.'/*')));
+                                    @endphp
                                     <a
                                         href="{{ $child->url }}"
                                         @if ($child->open_in_new_tab) target="_blank" rel="noopener noreferrer" @endif
+                                        @if ($isChildActive) aria-current="page" @endif
                                         @click="mobileMenu = false"
-                                        class="block py-1.5 text-xs text-white/75 transition hover:text-white focus-visible:outline-none focus-visible:text-white"
+                                        class="block py-1.5 text-xs transition focus-visible:outline-none focus-visible:text-white {{ $isChildActive ? 'text-white font-semibold' : 'text-white/75 hover:text-white' }}"
                                     >{{ $child->label }}</a>
                                 @endif
                             @endforeach

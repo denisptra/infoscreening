@@ -11,6 +11,22 @@ use Illuminate\Validation\ValidationException;
 trait HandlesImageUploads
 {
     /**
+     * Validation rules for fields wired to the Strapi Media Picker (accepts either uploaded file or existing/selected path).
+     *
+     * @return array<string, array<int, mixed>>
+     */
+    protected function imagePickerRules(Request $request, string $field): array
+    {
+        return [
+            $field => $request->hasFile($field)
+                ? ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096']
+                : ['nullable', 'string', 'max:500'],
+            "direct_{$field}" => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096'],
+            "{$field}_url" => ['nullable', 'string', 'max:500'],
+        ];
+    }
+
+    /**
      * Resolve the image value for a record from an uploaded file, Strapi asset picker, or a remote URL.
      * Returns the existing value when neither is supplied.
      */

@@ -13,7 +13,7 @@ class EnsureUserHasRole
         $user = $request->user();
 
         if ($user === null || ! in_array($user->role?->value, $roles, true)) {
-            abort(403, 'Anda tidak memiliki izin untuk mengakses halaman ini.');
+            abort(404);
         }
 
         return $next($request);

@@ -187,13 +187,22 @@
                             </button>
                         </div>
 
+                        @php
+                            $initialContent = old('content');
+                            if ($initialContent === null && filled(old('content_encoded'))) {
+                                $decodedOld = base64_decode((string) old('content_encoded'), true);
+                                $initialContent = $decodedOld !== false ? $decodedOld : '';
+                            }
+                            $initialContent = $initialContent ?? $article->content;
+                        @endphp
+
                         <!-- Editable Visual Canvas -->
                         <div
                             id="editorCanvas"
                             contenteditable="true"
                             class="p-4 min-h-[350px] max-h-[600px] overflow-y-auto text-sm leading-relaxed text-[#32324d] outline-none focus:outline-none prose prose-sm max-w-none"
                             placeholder="Mulai tulis naskah artikel Anda di sini seperti di Microsoft Word..."
-                        >{!! old('content', $article->content) !!}</div>
+                        >{!! $initialContent !!}</div>
                     </div>
 
                     <!-- Hidden textarea mapped for Laravel Form POST -->
@@ -201,7 +210,7 @@
                         name="content"
                         id="content"
                         class="hidden"
-                    >{{ old('content', $article->content) }}</textarea>
+                    >{{ $initialContent }}</textarea>
 
                     <!-- HTML dikirim dalam bentuk base64 agar tidak diblokir ModSecurity/WAF cPanel -->
                     <input type="hidden" name="content_is_encoded" value="1">
@@ -226,6 +235,7 @@
                         <div class="rounded-lg bg-blue-50 p-3 text-[11px] leading-relaxed text-blue-800">
                             Artikel disimpan sebagai draf dan perlu diterbitkan oleh Admin atau Super Admin.
                         </div>
+                        <input type="hidden" name="status" value="draft">
                     @else
                     <div>
                         <label for="status" class="block font-medium text-[#32324d] mb-1">
@@ -316,6 +326,34 @@
                             </label>
                         @endforeach
                     </div>
+                </div>
+
+                <!-- Tags Relation -->
+                <div class="bg-white p-5 rounded-xl border border-[#eaeaef] shadow-strapi space-y-4 text-xs">
+                    <h3 class="font-medium text-xs text-[#32324d] pb-2 border-b border-[#eaeaef]">
+                        Tags Relation
+                    </h3>
+
+                    <div class="space-y-2 max-h-40 overflow-y-auto pr-1">
+                        @php
+                            $selectedTags = old('tags', $article->tags->pluck('id')->toArray());
+                        @endphp
+                        @foreach ($tags as $tag)
+                            <label class="flex items-center gap-2 cursor-pointer text-slate-700">
+                                <input
+                                    type="checkbox"
+                                    name="tags[]"
+                                    value="{{ $tag->id }}"
+                                    {{ in_array($tag->id, $selectedTags) ? 'checked' : '' }}
+                                    class="rounded border-[#dcdce4] text-[#4945ff] focus:ring-[#4945ff]"
+                                >
+                                <span>{{ $tag->name }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                    @error('tags')
+                        <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                    @enderror
                 </div>
 
             </div>

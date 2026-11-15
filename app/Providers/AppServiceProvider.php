@@ -10,8 +10,10 @@ use App\Models\NavigationItem;
 use App\Models\SiteSetting;
 use App\Models\Tag;
 use App\Policies\ArticlePolicy;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View as ViewFacade;
@@ -33,6 +35,23 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::policy(Article::class, ArticlePolicy::class);
+
+        ResetPassword::toMailUsing(function (object $notifiable, string $token): MailMessage {
+            $url = url(route('password.reset', [
+                'token' => $token,
+                'email' => $notifiable->getEmailForPasswordReset(),
+            ], false));
+
+            $expireMinutes = config('auth.passwords.'.config('auth.defaults.passwords').'.expire', 60);
+
+            return (new MailMessage)
+                ->subject('Atur Ulang Password — Infoscreening')
+                ->greeting('Halo, '.($notifiable->name ?: 'Pengguna Infoscreening').'!')
+                ->line('Anda menerima email ini karena kami menerima permintaan pengaturan ulang password untuk akun Anda.')
+                ->action('Atur Ulang Password', $url)
+                ->line("Tautan ini hanya berlaku selama {$expireMinutes} menit.")
+                ->line('Jika Anda tidak merasa meminta pengaturan ulang password, abaikan saja email ini.');
+        });
 
         if (! file_exists(public_path('storage')) && file_exists(storage_path('app/public')) && function_exists('symlink')) {
             @symlink(storage_path('app/public'), public_path('storage'));
@@ -103,63 +122,93 @@ class AppServiceProvider extends ServiceProvider
         });
 
         ViewFacade::composer('layouts.site', function (View $view): void {
-            $activeItems = fn (string $location) => NavigationItem::query()
-                ->where('location', $location)
-                ->whereNull('parent_id')
-                ->where('is_active', true)
-                ->where(function (Builder $query): void {
-                    $query->where(function (Builder $query): void {
-                        $query->whereNotNull('url')->where('url', '!=', '');
-                    })->orWhereHas('children', fn (Builder $query) => $query
-                        ->where('is_active', true)
-                        ->whereNotNull('url')
-                        ->where('url', '!=', ''));
-                })
-                ->with(['children' => fn ($query) => $query
-                    ->where('is_active', true)
-                    ->whereNotNull('url')
-                    ->where('url', '!=', '')])
-                ->orderBy('sort_order')
-                ->get();
-
-            $footerSettings = SiteSetting::query()
-                ->whereIn('key', ['footer_about', 'footer_copyright'])
-                ->pluck('value', 'key');
-
-            $allFooterMenuItems = $activeItems('footer');
-            $footerRubricMenu = $allFooterMenuItems->firstWhere('label', 'Rubrikasi Artikel');
-            $footerCategories = Category::query()
+            $topCategories = Category::query()
+                ->withCount(['articles' => fn ($query) => $query->published()])
+                ->orderByDesc('articles_count')
                 ->orderBy('name')
                 ->limit(6)
+                ->get(['id', 'name', 'slug', 'color']);
+
+            $allTags = Tag::query()
+                ->withCount(['articles' => fn ($query) => $query->published()])
+                ->orderByDesc('articles_count')
+                ->orderBy('name')
+                ->limit(8)
                 ->get(['id', 'name', 'slug']);
 
-            if ($footerRubricMenu) {
-                $footerCategoryMenuUrls = $footerRubricMenu->children->pluck('url');
-                $footerCategories = $footerCategories
-                    ->reject(fn (Category $category): bool => $footerCategoryMenuUrls->contains(
-                        route('categories.show', ['category' => $category], false)
-                    ))
-                    ->values();
-            }
+            // Navbar konsisten berbahasa Indonesia dengan dropdown ringkas
+            $home = tap(new NavigationItem(['location' => 'header', 'label' => 'Beranda', 'url' => '/', 'sort_order' => 10, 'open_in_new_tab' => false, 'is_active' => true]), fn ($i) => $i->setRelation('children', collect()));
+
+            $articleChildren = collect([
+                tap(new NavigationItem([
+                    'location' => 'header',
+                    'label' => 'Semua Artikel',
+                    'url' => '/artikel',
+                    'sort_order' => 5,
+                    'open_in_new_tab' => false,
+                    'is_active' => true,
+                ]), fn ($i) => $i->setRelation('children', collect())),
+            ])->merge(
+                $topCategories->values()->map(function (Category $category, int $index): NavigationItem {
+                    $child = new NavigationItem([
+                        'location' => 'header',
+                        'label' => $category->name,
+                        'url' => '/kategori/'.$category->slug,
+                        'sort_order' => ($index + 1) * 10,
+                        'open_in_new_tab' => false,
+                        'is_active' => true,
+                    ]);
+                    $child->setRelation('children', collect());
+
+                    return $child;
+                })
+            )->push(
+                tap(new NavigationItem([
+                    'location' => 'header',
+                    'label' => 'Semua Kategori',
+                    'url' => '/kategori',
+                    'sort_order' => 999,
+                    'open_in_new_tab' => false,
+                    'is_active' => true,
+                ]), fn ($i) => $i->setRelation('children', collect()))
+            );
+            $artikel = tap(new NavigationItem(['location' => 'header', 'label' => 'Artikel', 'url' => '/artikel', 'sort_order' => 20, 'open_in_new_tab' => false, 'is_active' => true]), fn ($i) => $i->setRelation('children', $articleChildren));
+
+            $rupaJasaChildren = collect([
+                tap(new NavigationItem(['location' => 'header', 'label' => 'Semua Rupa Jasa', 'url' => '/rupa-jasa', 'sort_order' => 5, 'open_in_new_tab' => false, 'is_active' => true]), fn ($i) => $i->setRelation('children', collect())),
+                tap(new NavigationItem(['location' => 'header', 'label' => 'Direktori Penulis', 'url' => '/authors-list', 'sort_order' => 10, 'open_in_new_tab' => false, 'is_active' => true]), fn ($i) => $i->setRelation('children', collect())),
+                tap(new NavigationItem(['location' => 'header', 'label' => 'Tenaga Ahli', 'url' => '/rupa-jasa/tenaga-ahli', 'sort_order' => 20, 'open_in_new_tab' => false, 'is_active' => true]), fn ($i) => $i->setRelation('children', collect())),
+                tap(new NavigationItem(['location' => 'header', 'label' => 'Toko', 'url' => '/toko', 'sort_order' => 30, 'open_in_new_tab' => false, 'is_active' => true]), fn ($i) => $i->setRelation('children', collect())),
+            ]);
+            $rupaJasa = tap(new NavigationItem(['location' => 'header', 'label' => 'Rupa Jasa', 'url' => '/rupa-jasa', 'sort_order' => 40, 'open_in_new_tab' => false, 'is_active' => true]), fn ($i) => $i->setRelation('children', $rupaJasaChildren));
+
+            $headerMenuItems = collect([
+                $home,
+                $artikel,
+                tap(new NavigationItem(['location' => 'header', 'label' => 'Kalender', 'url' => '/events', 'sort_order' => 30, 'open_in_new_tab' => false, 'is_active' => true]), fn ($i) => $i->setRelation('children', collect())),
+                $rupaJasa,
+                tap(new NavigationItem(['location' => 'header', 'label' => 'Tentang', 'url' => '/tentang-kami', 'sort_order' => 50, 'open_in_new_tab' => false, 'is_active' => true]), fn ($i) => $i->setRelation('children', collect())),
+                tap(new NavigationItem(['location' => 'header', 'label' => 'Kontak', 'url' => '/kontak', 'sort_order' => 60, 'open_in_new_tab' => false, 'is_active' => true]), fn ($i) => $i->setRelation('children', collect())),
+            ]);
+
+            $ecosystemChildren = collect([
+                tap(new NavigationItem(['location' => 'footer', 'label' => 'Kalender Acara Sinema', 'url' => '/events', 'sort_order' => 10, 'open_in_new_tab' => false, 'is_active' => true]), fn ($i) => $i->setRelation('children', collect())),
+                tap(new NavigationItem(['location' => 'footer', 'label' => 'Kirim Liputan / Naskah', 'url' => '/berkontribusi', 'sort_order' => 20, 'open_in_new_tab' => false, 'is_active' => true]), fn ($i) => $i->setRelation('children', collect())),
+                tap(new NavigationItem(['location' => 'footer', 'label' => 'Tenaga Ahli Film', 'url' => '/rupa-jasa/tenaga-ahli', 'sort_order' => 30, 'open_in_new_tab' => false, 'is_active' => true]), fn ($i) => $i->setRelation('children', collect())),
+                tap(new NavigationItem(['location' => 'footer', 'label' => 'Daftar Penulis', 'url' => '/authors-list', 'sort_order' => 40, 'open_in_new_tab' => false, 'is_active' => true]), fn ($i) => $i->setRelation('children', collect())),
+                tap(new NavigationItem(['location' => 'footer', 'label' => 'Toko Zine & Merchandise', 'url' => '/toko', 'sort_order' => 50, 'open_in_new_tab' => false, 'is_active' => true]), fn ($i) => $i->setRelation('children', collect())),
+                tap(new NavigationItem(['location' => 'footer', 'label' => 'Kontak Redaksi', 'url' => '/kontak', 'sort_order' => 60, 'open_in_new_tab' => false, 'is_active' => true]), fn ($i) => $i->setRelation('children', collect())),
+            ]);
+            $ecosystemGroup = tap(new NavigationItem(['location' => 'footer', 'label' => 'Ekosistem Sinema', 'url' => null, 'sort_order' => 10, 'open_in_new_tab' => false, 'is_active' => true]), fn ($i) => $i->setRelation('children', $ecosystemChildren));
 
             $view->with([
-                'headerMenuItems' => $activeItems('header'),
-                'footerRubricMenu' => $footerRubricMenu,
-                'footerMenuItems' => $allFooterMenuItems
-                    ->reject(fn (NavigationItem $item): bool => in_array($item->label, ['Rubrikasi Artikel', 'Ikuti Kami'], true))
-                    ->values(),
-                'footerCategories' => $footerCategories,
-                'footerTags' => Tag::query()
-                    ->withCount('articles')
-                    ->orderByDesc('articles_count')
-                    ->orderBy('name')
-                    ->limit(9)
-                    ->get(['id', 'name', 'slug']),
-                'footerAbout' => $footerSettings->get(
-                    'footer_about',
-                    'Media informasi pemutaran sinema alternatif, festival film, dan ekosistem perfilman Indonesia.'
-                ),
-                'footerCopyright' => $footerSettings->get('footer_copyright', 'Infoscreening.id'),
+                'headerMenuItems' => $headerMenuItems,
+                'footerRubricMenu' => null,
+                'footerMenuItems' => collect([$ecosystemGroup]),
+                'footerCategories' => $topCategories,
+                'footerTags' => $allTags,
+                'footerAbout' => 'Media informasi pemutaran sinema alternatif, festival film, dan ekosistem perfilman Indonesia.',
+                'footerCopyright' => 'Infoscreening.id',
             ]);
         });
 

@@ -80,8 +80,8 @@
                         <span class="text-[10px] text-[#8e8ea9] tracking-wider uppercase">Panel Editorial</span>
                     </div>
                 </a>
-                <button @click="sidebarOpen = false" class="lg:hidden text-[#8e8ea9] hover:text-white p-1">
-                    <i class="fas fa-times text-sm"></i>
+                <button type="button" @click="sidebarOpen = false" aria-label="Tutup sidebar" class="lg:hidden text-[#c0c0cf] hover:text-white p-1">
+                    <i class="fas fa-times text-sm" aria-hidden="true"></i>
                 </button>
             </div>
 
@@ -177,22 +177,7 @@
                             <span class="text-[10px] text-[#8e8ea9] ml-auto font-normal">{{ $sidebarCounts['products'] }}</span>
                         </a>
                     @endif
-                </div>
 
-                <!-- Section: PLUGINS & TOOLS -->
-                <div class="space-y-1">
-                    <div class="px-3 pb-1 text-[10px] font-semibold text-[#8e8ea9] tracking-wider uppercase">
-                        Plugins
-                    </div>
-                    @if (auth()->user()->isSuperAdmin())
-                        <a
-                            href="{{ route('strapi.content-types.index') }}"
-                            class="strapi-sidebar-item {{ request()->routeIs('strapi.content-types.*') ? 'active' : '' }}"
-                        >
-                            <i class="fas fa-cubes text-[#8e8ea9] w-4 text-center"></i>
-                            <span>Content-Type Builder</span>
-                        </a>
-                    @endif
                     <a
                         href="{{ route('strapi.media.index') }}"
                         class="strapi-sidebar-item {{ request()->routeIs('strapi.media.*') ? 'active' : '' }}"
@@ -203,20 +188,35 @@
                     </a>
                 </div>
 
-                <!-- Section: SETTINGS & APPEARANCE -->
-                @if (auth()->user()->isSuperAdmin() || auth()->user()->isEditorialAdmin())
+                @if (auth()->user()->isSuperAdmin())
+                    <!-- Section: PLUGINS & TOOLS -->
                     <div class="space-y-1">
-                    <div class="px-3 pb-1 text-[10px] font-semibold text-[#8e8ea9] tracking-wider uppercase">
-                        Tampilan &amp; Pengaturan
+                        <div class="px-3 pb-1 text-[10px] font-semibold text-[#8e8ea9] tracking-wider uppercase">
+                            Plugins
+                        </div>
+                        <a
+                            href="{{ route('strapi.content-types.index') }}"
+                            class="strapi-sidebar-item {{ request()->routeIs('strapi.content-types.*') ? 'active' : '' }}"
+                        >
+                            <i class="fas fa-cubes text-[#8e8ea9] w-4 text-center"></i>
+                            <span>Content-Type Builder</span>
+                        </a>
                     </div>
-                    <a
-                        href="{{ route('strapi.navigation.index') }}"
-                        class="strapi-sidebar-item {{ request()->routeIs('strapi.navigation.*', 'strapi.appearance.*') ? 'active' : '' }}"
-                    >
-                        <i class="fas fa-bars-staggered text-[#8e8ea9] w-4 text-center"></i>
-                        <span>Navigasi &amp; Footer</span>
-                    </a>
-                    @if (auth()->user()->isSuperAdmin())
+                @endif
+
+                <!-- Section: SETTINGS & APPEARANCE -->
+                @if (auth()->user()->isSuperAdmin())
+                    <div class="space-y-1">
+                        <div class="px-3 pb-1 text-[10px] font-semibold text-[#8e8ea9] tracking-wider uppercase">
+                            Tampilan &amp; Pengaturan
+                        </div>
+                        <a
+                            href="{{ route('strapi.navigation.index') }}"
+                            class="strapi-sidebar-item {{ request()->routeIs('strapi.navigation.*', 'strapi.appearance.*') ? 'active' : '' }}"
+                        >
+                            <i class="fas fa-bars-staggered text-[#8e8ea9] w-4 text-center"></i>
+                            <span>Navigasi &amp; Footer</span>
+                        </a>
                         <a
                             href="{{ route('strapi.settings.index') }}"
                             class="strapi-sidebar-item {{ request()->routeIs('strapi.settings.*') ? 'active' : '' }}"
@@ -224,16 +224,15 @@
                             <i class="fas fa-gear text-[#8e8ea9] w-4 text-center"></i>
                             <span>Settings &amp; API</span>
                         </a>
-                    @endif
-                    <a
-                        href="{{ route('home') }}"
-                        target="_blank"
-                        class="strapi-sidebar-item text-[#a680f5] hover:text-white"
-                    >
-                        <i class="fas fa-arrow-up-right-from-square text-[#a680f5] w-4 text-center"></i>
-                        <span>Live Portal View</span>
-                    </a>
-                </div>
+                        <a
+                            href="{{ route('home') }}"
+                            target="_blank"
+                            class="strapi-sidebar-item text-[#a680f5] hover:text-white"
+                        >
+                            <i class="fas fa-arrow-up-right-from-square text-[#a680f5] w-4 text-center"></i>
+                            <span>Live Portal View</span>
+                        </a>
+                    </div>
                 @endif
 
             </nav>
@@ -254,8 +253,8 @@
 
                 <form method="POST" action="{{ route('logout') }}" class="inline">
                     @csrf
-                    <button type="submit" class="text-[#8e8ea9] hover:text-red-400 p-1.5 transition rounded" title="Logout">
-                        <i class="fas fa-arrow-right-from-bracket text-xs"></i>
+                    <button type="submit" aria-label="Keluar" class="text-[#c0c0cf] hover:text-red-400 p-1.5 transition rounded" title="Logout">
+                        <i class="fas fa-arrow-right-from-bracket text-xs" aria-hidden="true"></i>
                     </button>
                 </form>
             </div>
@@ -269,8 +268,8 @@
         <header class="fixed top-0 right-0 left-0 lg:left-64 z-30 h-16 bg-white border-b border-[#eaeaef] flex items-center justify-between px-4 sm:px-6 shadow-[0_1px_4px_rgba(33,33,52,0.04)]">
             <!-- Left: Breadcrumb / Page Title -->
             <div class="flex items-center gap-3">
-                <button @click="sidebarOpen = true" class="lg:hidden p-1.5 text-slate-500 hover:text-slate-800">
-                    <i class="fas fa-bars text-base"></i>
+                <button type="button" @click="sidebarOpen = true" :aria-expanded="sidebarOpen.toString()" aria-label="Buka sidebar" class="lg:hidden p-1.5 text-slate-700 hover:text-slate-900 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4945ff]">
+                    <i class="fas fa-bars text-base" aria-hidden="true"></i>
                 </button>
                 <div class="flex items-center gap-2 text-xs text-[#666687]">
                     <span class="font-normal text-[#8e8ea9]">Strapi</span>

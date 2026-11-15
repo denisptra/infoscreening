@@ -92,7 +92,6 @@ class DashboardController extends Controller
             ->values();
         $categoriesBySlug = Category::query()
             ->withCount('articles')
-            ->whereIn('slug', $categorySlugs)
             ->get()
             ->keyBy('slug');
         $dashboardCategories = $articleMenuItems
@@ -109,11 +108,26 @@ class DashboardController extends Controller
             })
             ->filter()
             ->values();
+
+        // Tampilkan semua kategori agar dashboard & dropdown navbar selalu punya isi/link yang benar
+        if ($dashboardCategories->isEmpty()) {
+            $dashboardCategories = $categoriesBySlug->sortBy('name')->values()->each(function (Category $category): void {
+                $category->setAttribute('menu_label', $category->name);
+            });
+        } else {
+            $shownSlugs = $dashboardCategories->pluck('slug')->all();
+            $remaining = $categoriesBySlug->reject(fn (Category $category): bool => in_array($category->slug, $shownSlugs, true))
+                ->sortBy('name')
+                ->values()
+                ->each(fn (Category $category) => $category->setAttribute('menu_label', $category->name));
+            $dashboardCategories = $dashboardCategories->concat($remaining)->values();
+        }
+
         $dashboardTags = Tag::query()
             ->withCount('articles')
             ->orderByDesc('articles_count')
             ->orderBy('name')
-            ->limit(9)
+            ->limit(12)
             ->get();
 
         return view('admin.dashboard', [

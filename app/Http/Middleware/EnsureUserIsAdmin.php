@@ -12,7 +12,7 @@ class EnsureUserIsAdmin
     public function handle(Request $request, Closure $next): Response
     {
         if (! in_array($request->user()?->role, [UserRole::SuperAdmin, UserRole::Admin], true)) {
-            abort(403, 'Area ini hanya untuk admin Infoscreening.');
+            abort(404);
         }
 
         return $next($request);

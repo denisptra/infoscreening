@@ -30,7 +30,7 @@
                 {{ $slot }}
             </div>
 
-            <p class="mt-6 text-[11px] text-slate-400">&copy; {{ date('Y') }} Infoscreening. Festival Film dan Rupa-Rupa Sinema.</p>
+            <p class="mt-6 text-[11px] text-slate-600">&copy; {{ date('Y') }} Infoscreening. Festival Film dan Rupa-Rupa Sinema.</p>
         </div>
     </body>
 </html>

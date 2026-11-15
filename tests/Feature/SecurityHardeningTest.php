@@ -98,8 +98,8 @@ class SecurityHardeningTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->actingAs($user)->get('/strapi')->assertForbidden();
-        $this->actingAs($user)->get('/admin')->assertForbidden();
-        $this->actingAs($user)->get('/strapi/settings')->assertForbidden();
+        $this->actingAs($user)->get('/strapi')->assertNotFound();
+        $this->actingAs($user)->get('/admin')->assertNotFound();
+        $this->actingAs($user)->get('/strapi/settings')->assertNotFound();
     }
 }

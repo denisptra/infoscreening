@@ -68,9 +68,7 @@ class ExpertController extends Controller
             'bio' => ['nullable', 'string', 'max:1500'],
             'email' => ['nullable', 'email', 'max:160'],
             'phone' => ['nullable', 'string', 'max:40'],
-            'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096'],
-            'direct_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096'],
-            'photo_url' => ['nullable', 'url', 'max:500'],
+            ...$this->imagePickerRules($request, 'photo'),
         ]);
 
         unset($data['photo'], $data['direct_photo'], $data['photo_url']);

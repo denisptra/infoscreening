@@ -26,8 +26,8 @@ class AdminRoleTest extends TestCase
             'status' => 'draft',
         ]);
 
-        $this->actingAs($admin)->get('/strapi/settings')->assertForbidden();
-        $this->actingAs($admin)->get('/strapi/content-types')->assertForbidden();
+        $this->actingAs($admin)->get('/strapi/settings')->assertNotFound();
+        $this->actingAs($admin)->get('/strapi/content-types')->assertNotFound();
         $this->actingAs($admin)->get('/strapi/events')->assertOk();
         $this->actingAs($admin)->get('/strapi/categories')->assertOk();
         $this->actingAs($admin)->get('/strapi/tags')->assertOk();
@@ -79,8 +79,8 @@ class AdminRoleTest extends TestCase
             ->assertOk()
             ->assertSee($ownDraft->title)
             ->assertDontSee($otherDraft->title);
-        $this->actingAs($editor)->get('/strapi/articles/'.$otherDraft->slug.'/edit')->assertForbidden();
-        $this->actingAs($editor)->get('/strapi/articles/'.$publishedArticle->slug.'/edit')->assertForbidden();
+        $this->actingAs($editor)->get('/strapi/articles/'.$otherDraft->slug.'/edit')->assertNotFound();
+        $this->actingAs($editor)->get('/strapi/articles/'.$publishedArticle->slug.'/edit')->assertNotFound();
 
         $response = $this->actingAs($editor)->post('/strapi/articles', [
             'title' => 'Draf Baru Penulis',
@@ -135,9 +135,9 @@ class AdminRoleTest extends TestCase
     {
         $editor = User::factory()->editor()->create();
 
-        $this->actingAs($editor)->get('/strapi/categories')->assertForbidden();
-        $this->actingAs($editor)->get('/strapi/settings')->assertForbidden();
-        $this->actingAs($editor)->get('/admin')->assertForbidden();
+        $this->actingAs($editor)->get('/strapi/categories')->assertNotFound();
+        $this->actingAs($editor)->get('/strapi/settings')->assertNotFound();
+        $this->actingAs($editor)->get('/admin')->assertNotFound();
     }
 
     public function test_super_admin_can_manage_navigation_and_site_settings(): void

@@ -91,7 +91,7 @@
                     </div>
 
                     <div class="mt-3 pt-3 border-t border-white/15 flex items-center justify-between text-[11px] text-purple-200 whitespace-nowrap">
-                        <span>{{ $featured->author->name ?? 'Redaksi' }}</span>
+                        <span>{{ $featured->legacy_author_name ?: ($featured->author->name ?? 'Redaksi') }}</span>
                         <a href="{{ route('articles.show', ['article' => $featured]) }}" class="text-white hover:underline flex items-center gap-1 font-medium">
                             <span>Baca Selengkapnya</span>
                             <i class="fas fa-angle-right text-[10px]"></i>
@@ -155,7 +155,7 @@
                     </div>
 
                     <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 whitespace-nowrap">
-                        <span class="truncate max-w-[120px]">{{ $item->author->name ?? 'Redaksi' }}</span>
+                        <span class="truncate max-w-[120px]">{{ $item->legacy_author_name ?: ($item->author->name ?? 'Redaksi') }}</span>
                         <time datetime="{{ $item->published_at?->toDateString() }}">
                             {{ $item->published_at?->translatedFormat('d M Y') }}
                         </time>
@@ -228,7 +228,7 @@
                             </div>
 
                             <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 whitespace-nowrap">
-                                <span class="truncate max-w-[120px]">{{ $article->author->name ?? 'Redaksi' }}</span>
+                                <span class="truncate max-w-[120px]">{{ $article->legacy_author_name ?: ($article->author->name ?? 'Redaksi') }}</span>
                                 <time>{{ $article->published_at?->translatedFormat('d M Y') }}</time>
                             </div>
                         </article>

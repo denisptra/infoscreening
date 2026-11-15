@@ -143,19 +143,19 @@ class PortalFeatureTest extends TestCase
         $this->get('/admin')->assertRedirect('/admin/login');
 
         $user = User::factory()->create();
-        $this->actingAs($user)->get('/admin')->assertForbidden();
+        $this->actingAs($user)->get('/admin')->assertNotFound();
 
         $admin = User::factory()->admin()->create();
-        $this->actingAs($admin)->get('/admin')->assertForbidden();
+        $this->actingAs($admin)->get('/admin')->assertNotFound();
         $this->actingAs($admin)->get('/strapi')->assertOk();
         $this->actingAs($admin)->get('/strapi/articles')->assertOk();
         $this->actingAs($admin)->get('/strapi/events')->assertOk();
-        $this->actingAs($admin)->get('/strapi/settings')->assertForbidden();
+        $this->actingAs($admin)->get('/strapi/settings')->assertNotFound();
 
         $editor = User::factory()->editor()->create();
         $this->actingAs($editor)->get('/strapi')->assertOk();
         $this->actingAs($editor)->get('/strapi/articles')->assertOk();
-        $this->actingAs($editor)->get('/strapi/events')->assertForbidden();
+        $this->actingAs($editor)->get('/strapi/events')->assertNotFound();
 
         $superAdmin = User::factory()->superAdmin()->create();
         $this->actingAs($superAdmin)->get('/admin')->assertOk();
@@ -200,7 +200,7 @@ class PortalFeatureTest extends TestCase
         $response->assertRedirect('/');
         $this->assertFalse($user->fresh()->is_admin);
 
-        $this->actingAs($user)->get('/strapi')->assertForbidden();
+        $this->actingAs($user)->get('/strapi')->assertNotFound();
     }
 
     public function test_admin_content_type_builder_and_settings_accessible(): void

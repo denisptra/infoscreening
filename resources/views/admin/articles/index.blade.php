@@ -79,7 +79,7 @@
                                             {{ $article->title }}
                                         </a>
                                         <div class="flex items-center gap-2 text-[10px] text-[#8e8ea9] mt-0.5 whitespace-nowrap">
-                                            <span>Author: {{ $article->author->name ?? 'Redaksi' }}</span>
+                                            <span>Author: {{ $article->legacy_author_name ?: ($article->author->name ?? 'Redaksi') }}</span>
                                             <span>&bull;</span>
                                             <time>{{ $article->published_at?->translatedFormat('d M Y') ?? 'Unpublished' }}</time>
                                         </div>

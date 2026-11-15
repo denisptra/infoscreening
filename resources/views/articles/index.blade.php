@@ -65,7 +65,7 @@
                 </div>
 
                 <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 whitespace-nowrap">
-                    <span class="truncate max-w-[130px] font-normal text-slate-600">{{ $article->author->name ?? 'Redaksi' }}</span>
+                    <span class="truncate max-w-[130px] font-normal text-slate-600">{{ $article->legacy_author_name ?: ($article->author->name ?? 'Redaksi') }}</span>
                     <time datetime="{{ $article->published_at?->toDateString() }}">
                         {{ $article->published_at?->translatedFormat('d M Y') }}
                     </time>

@@ -10,6 +10,7 @@ use App\Models\Tag;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -138,9 +139,7 @@ class ArticleController extends Controller
             'is_featured' => ['nullable', 'boolean'],
             'meta_title' => ['nullable', 'string', 'max:200'],
             'meta_description' => ['nullable', 'string', 'max:300'],
-            'featured_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096'],
-            'direct_featured_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096'],
-            'featured_image_url' => ['nullable', 'url', 'max:500'],
+            ...$this->imagePickerRules($request, 'featured_image'),
             'categories' => ['nullable', 'array'],
             'categories.*' => ['exists:categories,id'],
             'tags' => ['nullable', 'array'],
@@ -154,9 +153,13 @@ class ArticleController extends Controller
         $data['slug'] = filled($validated['slug'] ?? null) ? $validated['slug'] : Str::slug($validated['title']);
         $data['is_featured'] = $request->boolean('is_featured');
         $data['reading_time'] = max(1, (int) ceil(str_word_count(strip_tags($validated['content'])) / 200));
+        $publishedAt = filled($validated['published_at'] ?? null)
+            ? Carbon::parse((string) $validated['published_at'], config('app.timezone'))
+            : null;
+
         $data['published_at'] = $validated['status'] === 'published'
-            ? ($validated['published_at'] ?? $article?->published_at ?? now())
-            : ($validated['published_at'] ?? null);
+            ? ($publishedAt ?? $article?->published_at ?? now())
+            : $publishedAt;
 
         return $data;
     }
