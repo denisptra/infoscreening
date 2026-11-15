@@ -36,7 +36,7 @@ jobs:
 
       - name: Install NPM dependencies & build Vite assets
         run: |
-          npm ci
+          npm install --no-audit --no-fund
           npm run build
 
       - name: Generate deploy info marker
