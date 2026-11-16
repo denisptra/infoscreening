@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Media;
+use App\Models\SiteSetting;
+use App\Support\MediaLibrarySync;
+use App\Support\MediaUrl;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,9 +19,17 @@ class MediaController extends Controller
     /**
      * Display the Strapi Media Library view or return JSON for asset pickers.
      */
-    public function index(Request $request): View|JsonResponse
+    public function index(Request $request, MediaLibrarySync $sync): View|JsonResponse
     {
-        $query = Media::query()->latest();
+        if (! app()->runningUnitTests() && ! SiteSetting::query()->where('key', 'media_backup_synced_v1')->exists()) {
+            $sync->sync();
+            SiteSetting::query()->updateOrCreate(
+                ['key' => 'media_backup_synced_v1'],
+                ['value' => now()->toIso8601String()]
+            );
+        }
+
+        $query = Media::query()->latest('created_at')->latest('id');
 
         if ($q = $request->input('q')) {
             $query->where(function ($b) use ($q) {
@@ -40,11 +51,14 @@ class MediaController extends Controller
         }
 
         if ($request->wantsJson() || $request->ajax()) {
-            $media = $query->take(60)->get();
+            $paginator = $query->paginate(48);
 
             return response()->json([
                 'success' => true,
-                'media' => $media,
+                'media' => $paginator->items(),
+                'total' => $paginator->total(),
+                'has_more' => $paginator->hasMorePages(),
+                'current_page' => $paginator->currentPage(),
             ]);
         }
 
@@ -57,6 +71,27 @@ class MediaController extends Controller
             'totalCount' => $totalCount,
             'totalBytes' => $totalBytes,
         ]);
+    }
+
+    /**
+     * Synchronize existing content images and public disk assets into the Media Library.
+     */
+    public function sync(MediaLibrarySync $sync): RedirectResponse
+    {
+        $stats = $sync->sync();
+        SiteSetting::query()->updateOrCreate(
+            ['key' => 'media_backup_synced_v1'],
+            ['value' => now()->toIso8601String()]
+        );
+
+        return redirect()
+            ->route('strapi.media.index')
+            ->with('status', sprintf(
+                'Sinkronisasi selesai: %s aset baru dimasukkan ke Media Library (%s dari konten/backup, %s dari folder storage).',
+                number_format($stats['added']),
+                number_format($stats['from_content']),
+                number_format($stats['from_storage'])
+            ));
     }
 
     /**
@@ -88,10 +123,11 @@ class MediaController extends Controller
 
         // Remote URL
         if ($url = $request->input('url')) {
-            $filename = basename(parse_url($url, PHP_URL_PATH) ?? 'asset.jpg') ?: 'asset.jpg';
+            $normalizedUrl = MediaUrl::normalizeForStorage($url) ?? $url;
+            $filename = basename(parse_url($normalizedUrl, PHP_URL_PATH) ?? 'asset.jpg') ?: 'asset.jpg';
             $media = Media::create([
                 'name' => $filename,
-                'file_path' => $url,
+                'file_path' => $normalizedUrl,
                 'mime_type' => 'image/jpeg',
                 'size' => 0,
                 'caption' => $request->input('caption'),
@@ -107,7 +143,7 @@ class MediaController extends Controller
             ]);
         }
 
-        return redirect()->route('strapi.media.index')->with('success', 'Asset(s) uploaded successfully to Media Library.');
+        return redirect()->route('strapi.media.index')->with('status', 'Asset(s) uploaded successfully to Media Library.');
     }
 
     /**
@@ -128,7 +164,7 @@ class MediaController extends Controller
             ]);
         }
 
-        return redirect()->route('strapi.media.index')->with('success', 'Asset deleted from Media Library.');
+        return redirect()->route('strapi.media.index')->with('status', 'Asset deleted from Media Library.');
     }
 
     private function handleFileUpload($file, ?string $caption): Media
@@ -138,6 +174,9 @@ class MediaController extends Controller
         $size = $file->getSize() ?: 0;
 
         $path = $file->store('uploads/'.date('Y/m'), 'public');
+        if (! is_string($path) || $path === '') {
+            throw new \RuntimeException('Gagal menyimpan aset ke disk penyimpanan publik.');
+        }
 
         $width = null;
         $height = null;

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Article;
 use App\Models\Category;
 use App\Models\Tag;
+use App\Support\MediaUrl;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -149,6 +150,8 @@ class ArticleController extends Controller
         $data = collect($validated)->only([
             'title', 'slug', 'excerpt', 'content', 'status', 'meta_title', 'meta_description',
         ])->all();
+
+        $data['content'] = MediaUrl::normalizeHtml($data['content']) ?? $data['content'];
 
         $data['slug'] = filled($validated['slug'] ?? null) ? $validated['slug'] : Str::slug($validated['title']);
         $data['is_featured'] = $request->boolean('is_featured');

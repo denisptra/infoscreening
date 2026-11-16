@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasImageUrl;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -9,7 +11,7 @@ use Illuminate\Support\Str;
 
 class Category extends Model
 {
-    use HasFactory;
+    use HasFactory, HasImageUrl;
 
     protected $fillable = [
         'name',
@@ -35,6 +37,11 @@ class Category extends Model
                 $category->slug = Str::slug($category->name);
             }
         });
+    }
+
+    protected function heroImageUrl(): Attribute
+    {
+        return Attribute::get(fn () => $this->resolveImageUrl($this->hero_image));
     }
 
     public function getRouteKeyName(): string

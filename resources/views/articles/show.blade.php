@@ -75,7 +75,7 @@
         <!-- Content Body (Inter Normal) -->
         <div class="article-content text-slate-700 text-sm sm:text-[15px] leading-relaxed space-y-4 font-normal">
             @if (strip_tags($article->content) !== $article->content)
-                {!! $article->content !!}
+                {!! $article->rendered_content !!}
             @else
                 {!! nl2br(e($article->content)) !!}
             @endif

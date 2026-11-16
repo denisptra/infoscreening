@@ -8,6 +8,7 @@ use App\Models\Category;
 use App\Models\Event;
 use App\Models\Tag;
 use App\Models\User;
+use App\Support\MediaLibrarySync;
 use App\Support\WordPressSqlDumpReader;
 use Carbon\Carbon;
 use Illuminate\Console\Attributes\Description;
@@ -68,7 +69,7 @@ class ImportWordPressContent extends Command
      */
     private array $metadata = [];
 
-    public function handle(WordPressSqlDumpReader $reader): int
+    public function handle(WordPressSqlDumpReader $reader, MediaLibrarySync $mediaSync): int
     {
         if (! in_array(DB::connection()->getDriverName(), ['mysql', 'mariadb'], true) && ! app()->runningUnitTests()) {
             $this->components->error('Database Laravel belum menggunakan MySQL. Atur DB_CONNECTION=mysql lalu jalankan migrasi terlebih dahulu.');
@@ -84,7 +85,7 @@ class ImportWordPressContent extends Command
 
         $dumpPath = $this->argument('dump');
 
-        if (! is_file($dumpPath) || ! is_readable($dumpPath)) {
+        if (! is_file($dumpPath)) {
             $this->components->error('File dump tidak ditemukan atau tidak dapat dibaca.');
 
             return self::FAILURE;
@@ -136,12 +137,15 @@ class ImportWordPressContent extends Command
             }
         });
 
+        $mediaStats = $mediaSync->sync($dumpPath);
+
         $this->components->info(sprintf(
-            'Impor selesai: %s artikel, %s event, %s kategori, %s tag. %s artikel dan %s event dilewati karena data utama tidak valid.',
+            'Impor selesai: %s artikel, %s event, %s kategori, %s tag, %s media library. %s artikel dan %s event dilewati karena data utama tidak valid.',
             number_format($results['articles']),
             number_format($results['events']),
             number_format($results['categories']),
             number_format($results['tags']),
+            number_format($mediaStats['added']),
             number_format($results['skipped_articles']),
             number_format($results['skipped_events'])
         ));

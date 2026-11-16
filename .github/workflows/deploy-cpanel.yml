@@ -5,24 +5,111 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      sync_vendor:
+        description: 'Sync folder vendor/ via FTP (aktifkan jika composer.lock berubah)'
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: deploy-cpanel-production
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
-  deploy:
-    name: Build & Deploy ke cPanel
+  test:
+    name: CI - Test Laravel (PHP 8.3)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, intl, fileinfo
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Prepare test environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate --ansi
+
+      - name: Run test suite
+        run: php artisan test
+
+  deploy:
+    name: CD - Build & Deploy ke cPanel
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 20
+
+      - name: Validate FTP configuration & detect vendor changes
+        id: meta
+        shell: bash
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          RAW_TARGET_DIR: ${{ secrets.FTP_TARGET_DIR }}
+        run: |
+          if [ -z "$FTP_SERVER" ] || [ -z "$FTP_USERNAME" ] || [ -z "$FTP_PASSWORD" ]; then
+            echo "::error::GitHub Secrets FTP_SERVER, FTP_USERNAME, atau FTP_PASSWORD belum diisi di Repository Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
+          TARGET_DIR="${RAW_TARGET_DIR:-./}"
+          TARGET_DIR="${TARGET_DIR%/}/"
+          echo "FTP_TARGET_DIR=${TARGET_DIR}" >> "$GITHUB_ENV"
+          echo "FTP_VENDOR_DIR=${TARGET_DIR}vendor/" >> "$GITHUB_ENV"
+
+          SYNC_VENDOR="false"
+          BEFORE="${{ github.event.before }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.sync_vendor }}" = "true" ]; then
+            SYNC_VENDOR="true"
+          elif [ "${{ github.event_name }}" = "push" ] && [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            if git cat-file -e "${BEFORE}^{commit}" 2>/dev/null || git fetch --depth=1 origin "$BEFORE" 2>/dev/null; then
+              if git diff --name-only "$BEFORE" "${{ github.sha }}" | grep -qx 'composer.lock'; then
+                SYNC_VENDOR="true"
+              fi
+            fi
+          fi
+
+          echo "sync_vendor=${SYNC_VENDOR}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup PHP 8.3 (only when vendor sync needed)
+        if: steps.meta.outputs.sync_vendor == 'true'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_mysql, intl, fileinfo
+          coverage: none
+
+      - name: Install production PHP dependencies
+        if: steps.meta.outputs.sync_vendor == 'true'
+        run: |
+          cp .env.example .env
+          php -r "file_exists('database/database.sqlite') || touch('database/database.sqlite');"
+          composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader --no-progress
+          rm -f .env database/database.sqlite bootstrap/cache/*.php
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install NPM dependencies & build Vite assets
@@ -35,28 +122,68 @@ jobs:
           echo "commit=${GITHUB_SHA}" > public/deploy-info.txt
           echo "deployed_at=$(TZ=Asia/Jakarta date '+%Y-%m-%d %H:%M:%S WIB')" >> public/deploy-info.txt
 
-      - name: Sync files to cPanel via FTP
+      - name: Sync application files to cPanel via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          server-dir: ${{ secrets.FTP_TARGET_DIR || './' }}
+          protocol: ${{ vars.FTP_PROTOCOL || 'ftp' }}
+          security: ${{ vars.FTP_SECURITY || 'loose' }}
+          server-dir: ${{ env.FTP_TARGET_DIR }}
           exclude: |
             **/.git*
             **/.git*/**
-            node_modules/**
-            vendor/**
-            tests/**
-            deploy/**
-            deploy.zip
+            .agents/**
+            .claude/**
+            .codex/**
+            .cursor/**
+            .editorconfig
             .env
             .env.*
+            .idea/**
+            .mcp.json
+            .npmrc
+            .styleci.yml
+            .vscode/**
+            AGENTS.md
+            CLAUDE.md
+            CHANGELOG.md
+            README.md
+            boost.json
+            bootstrap/cache/*.php
+            database/*.sql
+            database/*.sqlite
+            database/*.zip
+            deploy/**
+            deploy.zip
+            import_per_table/**
+            node_modules/**
+            package-lock.json
+            package.json
+            phpunit.xml
+            postcss.config.js
+            public/hot
             public/storage
             public/storage/**
+            render.yaml
             storage/**
-            bootstrap/cache/*.php
-            database/*.sqlite
-            database/*.sql
-            database/*.zip
-            import_per_table/**
+            tailwind.config.js
+            tests/**
+            test-output.txt
+            vendor/**
+            vite.config.js
+            *.sql
+
+      - name: Sync vendor/ to cPanel via FTP (when composer.lock changed)
+        if: steps.meta.outputs.sync_vendor == 'true'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ${{ vars.FTP_PROTOCOL || 'ftp' }}
+          security: ${{ vars.FTP_SECURITY || 'loose' }}
+          local-dir: ./vendor/
+          server-dir: ${{ env.FTP_VENDOR_DIR }}
+          state-name: .ftp-deploy-vendor-state.json

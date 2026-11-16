@@ -26,7 +26,10 @@ class ProductForm
                     ->default(0)
                     ->prefix('$'),
                 FileUpload::make('image')
-                    ->image(),
+                    ->image()
+                    ->disk('public')
+                    ->directory('products')
+                    ->visibility('public'),
                 TextInput::make('buy_url')
                     ->url(),
                 Toggle::make('is_available')

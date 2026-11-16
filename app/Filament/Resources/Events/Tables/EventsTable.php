@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Events\Tables;
 
+use App\Support\MediaUrl;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -32,7 +33,10 @@ class EventsTable
                 TextColumn::make('ends_at')
                     ->dateTime()
                     ->sortable(),
-                ImageColumn::make('image'),
+                ImageColumn::make('image')
+                    ->disk('public')
+                    ->getStateUsing(fn ($record) => MediaUrl::normalizeForFilamentColumn($record->image))
+                    ->defaultImageUrl(fn ($record) => $record->image_url),
                 TextColumn::make('url')
                     ->searchable(),
                 IconColumn::make('is_published')

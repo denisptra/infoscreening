@@ -2,7 +2,7 @@
 
 namespace App\Models\Concerns;
 
-use Illuminate\Support\Str;
+use App\Support\MediaUrl;
 
 trait HasImageUrl
 {
@@ -11,14 +11,6 @@ trait HasImageUrl
      */
     protected function resolveImageUrl(?string $value): ?string
     {
-        if (blank($value)) {
-            return null;
-        }
-
-        if (Str::startsWith($value, ['http://', 'https://', '//', '/'])) {
-            return $value;
-        }
-
-        return '/storage/'.ltrim($value, '/');
+        return MediaUrl::resolve($value);
     }
 }

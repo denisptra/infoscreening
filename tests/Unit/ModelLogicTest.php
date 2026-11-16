@@ -4,9 +4,12 @@ namespace Tests\Unit;
 
 use App\Enums\UserRole;
 use App\Models\Article;
+use App\Models\Category;
 use App\Models\Expert;
+use App\Models\Media;
 use App\Models\Product;
 use App\Models\User;
+use App\Support\MediaUrl;
 use Filament\Panel;
 use Tests\TestCase;
 
@@ -64,5 +67,43 @@ class ModelLogicTest extends TestCase
         $superAdmin = new User;
         $superAdmin->forceFill(['role' => UserRole::SuperAdmin]);
         $this->assertTrue($superAdmin->canAccessPanel($panel));
+    }
+
+    public function test_image_url_normalizes_localhost_and_relative_storage_paths(): void
+    {
+        $article = new Article([
+            'featured_image' => 'http://localhost:8000/storage/uploads/2026/11/poster.jpg',
+        ]);
+        $this->assertSame('/storage/uploads/2026/11/poster.jpg', $article->image_url);
+
+        $media = new Media([
+            'file_path' => 'uploads/2026/11/still.jpg',
+        ]);
+        $this->assertSame('/storage/uploads/2026/11/still.jpg', $media->url);
+
+        $loopbackMedia = new Media([
+            'file_path' => 'http://127.0.0.1:8000/storage/articles/cover.jpg',
+        ]);
+        $this->assertSame('/storage/articles/cover.jpg', $loopbackMedia->url);
+
+        $lanArticle = new Article([
+            'featured_image' => 'http://192.168.1.25:8000/storage/uploads/2026/11/lan.jpg',
+            'content' => '<p>Lihat <img src="http://localhost:8000/storage/articles/inline.jpg"> dan <img src="https://infoscreening.id/wp-content/uploads/2026/10/ext.jpg"></p>',
+        ]);
+        $this->assertSame('/storage/uploads/2026/11/lan.jpg', $lanArticle->image_url);
+        $this->assertSame(
+            '<p>Lihat <img src="/storage/articles/inline.jpg"> dan <img src="https://infoscreening.id/wp-content/uploads/2026/10/ext.jpg"></p>',
+            $lanArticle->rendered_content
+        );
+
+        $category = new Category([
+            'name' => 'Festival',
+            'hero_image' => 'storage/categories/hero.jpg',
+        ]);
+        $this->assertSame('/storage/categories/hero.jpg', $category->hero_image_url);
+        $this->assertSame('uploads/2026/11/lan.jpg', MediaUrl::normalizeForStorage('http://[::1]:8000/storage/uploads/2026/11/lan.jpg'));
+        $this->assertSame('https://example.com/poster.jpg', MediaUrl::normalizeForStorage('https://example.com/poster.jpg'));
+        $this->assertTrue(MediaUrl::isLocalOrPrivateHost('10.0.0.12'));
+        $this->assertFalse(MediaUrl::isLocalOrPrivateHost('next.infoscreening.id'));
     }
 }

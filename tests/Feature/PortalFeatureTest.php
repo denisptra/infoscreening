@@ -6,6 +6,7 @@ use App\Models\Article;
 use App\Models\Category;
 use App\Models\Event;
 use App\Models\Expert;
+use App\Models\Media;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -222,5 +223,152 @@ class PortalFeatureTest extends TestCase
             'type' => 'read-only',
             'description' => 'Token for automated tests',
         ])->assertRedirect('/strapi/settings?tab=tokens');
+    }
+
+    public function test_public_storage_fallback_route_serves_uploaded_images_without_session_cookies(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('uploads/2026/11/poster.jpg', 'fake-image-bytes');
+
+        $response = $this->get('/storage/uploads/2026/11/poster.jpg');
+
+        $response->assertOk();
+        $this->assertStringContainsString('public', (string) $response->headers->get('Cache-Control'));
+        $this->assertEmpty($response->headers->getCookies());
+
+        $this->get('/storage/../../.env')->assertNotFound();
+    }
+
+    public function test_article_upload_and_cross_device_urls_are_normalized_and_shared_media_preserved(): void
+    {
+        Storage::fake('public');
+        $admin = User::factory()->admin()->create();
+
+        $pngBytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=');
+        $file = UploadedFile::fake()->createWithContent('still.png', $pngBytes);
+        $uploadResponse = $this->actingAs($admin)->postJson('/strapi/media', [
+            'file' => $file,
+        ])->assertOk()->assertJsonPath('success', true);
+
+        $filePath = $uploadResponse->json('media.file_path');
+        $mediaUrl = $uploadResponse->json('media.url');
+        $this->assertStringStartsWith('/storage/', $mediaUrl);
+        Storage::disk('public')->assertExists($filePath);
+
+        $this->actingAs($admin)->post('/strapi/articles', [
+            'title' => 'Artikel Gambar Lintas Perangkat',
+            'content' => '<p>Foto: <img src="http://localhost:8000/storage/'.$filePath.'"></p>',
+            'status' => 'published',
+            'featured_image' => 'http://localhost:8000'.$mediaUrl,
+        ])->assertRedirect('/strapi/articles');
+
+        $article = Article::query()->where('slug', 'artikel-gambar-lintas-perangkat')->firstOrFail();
+        $this->assertSame($filePath, $article->featured_image);
+        $this->assertSame('/storage/'.$filePath, $article->image_url);
+        $this->assertStringNotContainsString('localhost:8000', $article->content);
+
+        $this->get('/artikel/'.$article->slug)
+            ->assertOk()
+            ->assertSee('/storage/'.$filePath, false)
+            ->assertDontSee('http://localhost:8000/storage/', false);
+
+        // Removing image from article keeps shared Media Library file intact
+        $this->actingAs($admin)->put(route('strapi.articles.update', $article), [
+            'title' => $article->title,
+            'slug' => $article->slug,
+            'content' => $article->content,
+            'status' => 'published',
+            'remove_featured_image' => '1',
+        ])->assertRedirect('/strapi/articles');
+
+        $this->assertNull($article->fresh()->featured_image);
+        Storage::disk('public')->assertExists($filePath);
+        $this->assertDatabaseHas('media', ['file_path' => $filePath]);
+    }
+
+    public function test_media_library_sync_unifies_content_backup_images_storage_files_and_wp_attachments(): void
+    {
+        Storage::fake('public');
+        $pngBytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=');
+        Storage::disk('public')->put('articles/orphan-cover.png', $pngBytes);
+
+        $admin = User::factory()->admin()->create();
+        $editor = User::factory()->editor()->create();
+
+        Article::create([
+            'user_id' => $admin->id,
+            'title' => 'Artikel Backup WP',
+            'slug' => 'artikel-backup-wp',
+            'content' => '<p>Body <img src="https://infoscreening.id/wp-content/uploads/2026/10/inline.jpg"></p>',
+            'featured_image' => 'https://infoscreening.id/wp-content/uploads/2026/10/hero.jpg',
+            'status' => 'published',
+            'published_at' => now()->subDays(5),
+        ]);
+
+        Article::create([
+            'user_id' => $admin->id,
+            'title' => 'Artikel Missing Local',
+            'slug' => 'artikel-missing-local',
+            'content' => 'Konten',
+            'featured_image' => 'media/2026/11/nonexistent.jpg',
+            'status' => 'draft',
+        ]);
+
+        Event::create([
+            'title' => 'Event Backup WP',
+            'slug' => 'event-backup-wp',
+            'type' => 'Festival',
+            'starts_at' => now()->addDays(2),
+            'image' => 'https://infoscreening.id/wp-content/uploads/2026/09/poster.png',
+            'is_published' => true,
+        ]);
+
+        $wpDumpPath = tempnam(sys_get_temp_dir(), 'wp-media-dump-');
+        file_put_contents($wpDumpPath, <<<'SQL'
+CREATE TABLE `wp_posts` (
+  `ID` bigint(20) unsigned NOT NULL,
+  `post_date` datetime NOT NULL,
+  `post_date_gmt` datetime NOT NULL,
+  `post_title` text NOT NULL,
+  `post_excerpt` text NOT NULL,
+  `guid` varchar(255) NOT NULL,
+  `post_type` varchar(20) NOT NULL,
+  `post_mime_type` varchar(100) NOT NULL
+);
+INSERT INTO `wp_posts` (`ID`, `post_date`, `post_date_gmt`, `post_title`, `post_excerpt`, `guid`, `post_type`, `post_mime_type`) VALUES
+(901, '2025-08-01 10:00:00', '2025-08-01 03:00:00', 'Poster Arsip Festival', '', 'https://infoscreening.id/wp-content/uploads/2025/08/arsip-festival.jpg', 'attachment', 'image/jpeg');
+SQL);
+
+        try {
+            $this->artisan('app:sync-media-library', ['--wp-dump' => $wpDumpPath])
+                ->assertSuccessful();
+
+            // Idempotent second run creates no duplicates
+            $this->artisan('app:sync-media-library', ['--wp-dump' => $wpDumpPath])
+                ->assertSuccessful();
+        } finally {
+            @unlink($wpDumpPath);
+        }
+
+        $this->assertDatabaseHas('media', ['file_path' => 'https://infoscreening.id/wp-content/uploads/2026/10/hero.jpg']);
+        $this->assertDatabaseHas('media', ['file_path' => 'https://infoscreening.id/wp-content/uploads/2026/10/inline.jpg']);
+        $this->assertDatabaseHas('media', ['file_path' => 'https://infoscreening.id/wp-content/uploads/2026/09/poster.png']);
+        $this->assertDatabaseHas('media', ['file_path' => 'https://infoscreening.id/wp-content/uploads/2025/08/arsip-festival.jpg']);
+        $this->assertDatabaseHas('media', ['file_path' => 'articles/orphan-cover.png']);
+        $this->assertDatabaseMissing('media', ['file_path' => 'media/2026/11/nonexistent.jpg']);
+        $this->assertSame(5, Media::count());
+
+        $externalMedia = Media::query()->where('file_path', 'https://infoscreening.id/wp-content/uploads/2026/10/hero.jpg')->firstOrFail();
+        $this->assertSame('Eksternal', $externalMedia->formatted_size);
+
+        $this->actingAs($editor)->post(route('strapi.media.sync'))->assertNotFound();
+        $this->actingAs($admin)->post(route('strapi.media.sync'))->assertRedirect(route('strapi.media.index'));
+
+        $this->actingAs($admin)
+            ->getJson(route('strapi.media.index'))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('total', 5)
+            ->assertJsonPath('has_more', false);
     }
 }

@@ -26,6 +26,7 @@ use App\Http\Controllers\TagController;
 use App\Models\Category;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 
 // Public front-facing portal routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -98,6 +99,9 @@ Route::prefix('strapi')
         Route::resource('articles', AdminArticleController::class)->except(['show']);
 
         // Media Library: terbuka untuk semua peran redaksi agar bisa melampirkan gambar artikel
+        Route::post('media/sync', [AdminMediaController::class, 'sync'])
+            ->middleware('role:super_admin,admin')
+            ->name('media.sync');
         Route::post('media', [AdminMediaController::class, 'store'])
             ->middleware('throttle:20,1')
             ->name('media.store');
@@ -152,12 +156,14 @@ Route::get('/storage/{path}', function (string $path) {
         abort(404);
     }
 
-    $disk = \Illuminate\Support\Facades\Storage::disk('public');
+    $disk = Storage::disk('public');
     abort_unless($disk->exists($path), 404);
 
     return $disk->response($path, null, [
         'Cache-Control' => 'public, max-age=31536000',
     ]);
-})->where('path', '.*')->name('storage.public');
+})->where('path', '.*')
+    ->withoutMiddleware('web')
+    ->name('storage.public');
 
 require __DIR__.'/auth.php';

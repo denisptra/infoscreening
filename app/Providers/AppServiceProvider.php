@@ -7,9 +7,9 @@ use App\Models\Article;
 use App\Models\Category;
 use App\Models\Contribution;
 use App\Models\NavigationItem;
-use App\Models\SiteSetting;
 use App\Models\Tag;
 use App\Policies\ArticlePolicy;
+use App\Support\MediaUrl;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -53,8 +53,18 @@ class AppServiceProvider extends ServiceProvider
                 ->line('Jika Anda tidak merasa meminta pengaturan ulang password, abaikan saja email ini.');
         });
 
-        if (! file_exists(public_path('storage')) && file_exists(storage_path('app/public')) && function_exists('symlink')) {
-            @symlink(storage_path('app/public'), public_path('storage'));
+        $publicStoragePath = public_path('storage');
+        $storagePublicTarget = storage_path('app/public');
+        if (is_link($publicStoragePath)) {
+            $expectedTarget = realpath($storagePublicTarget);
+            $actualTarget = realpath($publicStoragePath);
+            if ($actualTarget === false || ($expectedTarget !== false && $actualTarget !== $expectedTarget)) {
+                @unlink($publicStoragePath);
+            }
+        }
+
+        if (! file_exists($publicStoragePath) && file_exists($storagePublicTarget) && function_exists('symlink')) {
+            @symlink($storagePublicTarget, $publicStoragePath);
         }
 
         ViewFacade::composer('layouts.admin', function (View $view): void {
@@ -213,7 +223,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $host = request()->getHost();
-        $isExternalDomain = ! in_array($host, ['localhost', '127.0.0.1']) && ! str_starts_with($host, '192.168.');
+        $isExternalDomain = ! app()->environment('local') && ! MediaUrl::isLocalOrPrivateHost($host);
 
         if (
             request()->header('x-forwarded-proto') === 'https'

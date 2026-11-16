@@ -13,11 +13,11 @@ class WordPressSqlDumpReader
      */
     public function rows(string $path, string $prefix, array $tableSuffixes): Generator
     {
-        if (! is_file($path) || ! is_readable($path)) {
+        if (! is_file($path)) {
             throw new RuntimeException('File dump WordPress tidak ditemukan atau tidak dapat dibaca.');
         }
 
-        $handle = fopen($path, 'rb');
+        $handle = @fopen($path, 'rb');
 
         if ($handle === false) {
             throw new RuntimeException('File dump WordPress tidak dapat dibaca.');

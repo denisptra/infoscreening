@@ -30,7 +30,10 @@ class EventForm
                     ->required(),
                 DateTimePicker::make('ends_at'),
                 FileUpload::make('image')
-                    ->image(),
+                    ->image()
+                    ->disk('public')
+                    ->directory('events')
+                    ->visibility('public'),
                 TextInput::make('url')
                     ->url(),
                 Toggle::make('is_published')

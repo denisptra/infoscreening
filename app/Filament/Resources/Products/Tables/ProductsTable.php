@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Products\Tables;
 
+use App\Support\MediaUrl;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -23,7 +24,10 @@ class ProductsTable
                 TextColumn::make('price')
                     ->money()
                     ->sortable(),
-                ImageColumn::make('image'),
+                ImageColumn::make('image')
+                    ->disk('public')
+                    ->getStateUsing(fn ($record) => MediaUrl::normalizeForFilamentColumn($record->image))
+                    ->defaultImageUrl(fn ($record) => $record->image_url),
                 TextColumn::make('buy_url')
                     ->searchable(),
                 IconColumn::make('is_available')

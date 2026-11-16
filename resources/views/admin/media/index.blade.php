@@ -15,7 +15,20 @@
             <p class="text-xs text-[#666687] font-normal mt-0.5">Manage and upload cinema posters, film stills, headshots, and media assets.</p>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 flex-wrap">
+            @if (auth()->user()->isSuperAdmin() || auth()->user()->isEditorialAdmin())
+                <form method="POST" action="{{ route('strapi.media.sync') }}" class="inline">
+                    @csrf
+                    <button
+                        type="submit"
+                        class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-[#dcdce4] bg-white hover:border-[#4945ff] hover:text-[#4945ff] text-[#32324d] text-xs font-medium transition whitespace-nowrap"
+                    >
+                        <i class="fas fa-arrows-rotate text-[10px]"></i>
+                        <span>Sinkronkan Gambar Backup</span>
+                    </button>
+                </form>
+            @endif
+
             <button
                 type="button"
                 @click="openUploadModal = true"
@@ -96,7 +109,7 @@
                             <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
                                 <button
                                     type="button"
-                                    @click="copyUrl('{{ $item->url }}')"
+                                    @click="copyUrl(@js($item->url))"
                                     class="p-2 bg-white text-[#32324d] hover:text-[#4945ff] rounded-md text-xs shadow-sm"
                                     title="Copy asset URL"
                                 >

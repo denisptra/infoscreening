@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Articles\Tables;
 
+use App\Support\MediaUrl;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -22,6 +23,7 @@ class ArticlesTable
                     ->label('Thumbnail')
                     ->square()
                     ->disk('public')
+                    ->getStateUsing(fn ($record) => MediaUrl::normalizeForFilamentColumn($record->featured_image))
                     ->defaultImageUrl(fn ($record) => $record->image_url),
 
                 TextColumn::make('title')

@@ -2,7 +2,13 @@
 
 namespace App\Http\Controllers\Admin\Concerns;
 
+use App\Models\Article;
+use App\Models\Category;
+use App\Models\Event;
+use App\Models\Expert;
 use App\Models\Media;
+use App\Models\Product;
+use App\Support\MediaUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -19,10 +25,11 @@ trait HandlesImageUploads
     {
         return [
             $field => $request->hasFile($field)
-                ? ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096']
+                ? ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:20480']
                 : ['nullable', 'string', 'max:500'],
-            "direct_{$field}" => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096'],
+            "direct_{$field}" => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:20480'],
             "{$field}_url" => ['nullable', 'string', 'max:500'],
+            "remove_{$field}" => ['nullable', 'boolean'],
         ];
     }
 
@@ -52,8 +59,16 @@ trait HandlesImageUploads
                 ]);
             }
 
-            $this->deleteStoredImage($current);
             $path = $file->store($directory.'/'.date('Y/m'), 'public');
+            if (! is_string($path) || $path === '') {
+                throw ValidationException::withMessages([
+                    $field => 'Gagal menyimpan gambar ke direktori penyimpanan publik.',
+                ]);
+            }
+
+            if ($current !== $path) {
+                $this->deleteStoredImage($current);
+            }
 
             // Automatically record in Strapi Media Library
             Media::firstOrCreate(
@@ -78,16 +93,23 @@ trait HandlesImageUploads
                 ]);
             }
 
-            return $selectedPath;
+            return MediaUrl::normalizeForStorage((string) $selectedPath);
         }
 
         $url = $request->input("{$field}_url");
         if (filled($url)) {
-            if ($current !== $url) {
+            if (Str::contains((string) $url, ['..', '\\'])) {
+                throw ValidationException::withMessages([
+                    $field => 'Format URL gambar tidak valid.',
+                ]);
+            }
+
+            $normalizedUrl = MediaUrl::normalizeForStorage((string) $url);
+            if ($current !== $normalizedUrl) {
                 $this->deleteStoredImage($current);
             }
 
-            return $url;
+            return $normalizedUrl;
         }
 
         return $current;
@@ -96,11 +118,27 @@ trait HandlesImageUploads
     protected function deleteStoredImage(?string $path): void
     {
         if (
-            filled($path)
-            && ! Str::startsWith($path, ['http://', 'https://', '//', '/', '~'])
-            && ! Str::contains($path, ['..', '\\'])
+            blank($path)
+            || Str::startsWith($path, ['http://', 'https://', '//', '/', '~'])
+            || Str::contains($path, ['..', '\\'])
         ) {
-            Storage::disk('public')->delete($path);
+            return;
         }
+
+        if (Media::query()->where('file_path', $path)->exists()) {
+            return;
+        }
+
+        $references = Article::query()->where('featured_image', $path)->count()
+            + Event::query()->where('image', $path)->count()
+            + Expert::query()->where('photo', $path)->count()
+            + Product::query()->where('image', $path)->count()
+            + Category::query()->where('hero_image', $path)->count();
+
+        if ($references > 1) {
+            return;
+        }
+
+        Storage::disk('public')->delete($path);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Experts\Schemas;
 
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -25,7 +26,11 @@ class ExpertForm
                     ->email(),
                 TextInput::make('phone')
                     ->tel(),
-                TextInput::make('photo'),
+                FileUpload::make('photo')
+                    ->image()
+                    ->disk('public')
+                    ->directory('experts')
+                    ->visibility('public'),
                 Toggle::make('is_published')
                     ->required(),
             ]);

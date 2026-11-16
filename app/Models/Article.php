@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasImageUrl;
+use App\Support\MediaUrl;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -82,6 +83,11 @@ class Article extends Model
     protected function imageUrl(): Attribute
     {
         return Attribute::get(fn () => $this->resolveImageUrl($this->featured_image));
+    }
+
+    protected function renderedContent(): Attribute
+    {
+        return Attribute::get(fn () => MediaUrl::normalizeHtml($this->content));
     }
 
     protected function primaryCategory(): Attribute

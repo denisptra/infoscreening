@@ -71,6 +71,7 @@ class ArticleForm
                     ->image()
                     ->disk('public')
                     ->directory('articles')
+                    ->visibility('public')
                     ->columnSpanFull(),
 
                 Textarea::make('excerpt')
@@ -80,6 +81,9 @@ class ArticleForm
 
                 RichEditor::make('content')
                     ->label('Isi Konten Artikel')
+                    ->fileAttachmentsDisk('public')
+                    ->fileAttachmentsDirectory('articles/attachments')
+                    ->fileAttachmentsVisibility('public')
                     ->required()
                     ->columnSpanFull(),
 

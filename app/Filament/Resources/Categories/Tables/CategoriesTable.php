@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Categories\Tables;
 
+use App\Support\MediaUrl;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -19,7 +20,10 @@ class CategoriesTable
                     ->searchable(),
                 TextColumn::make('slug')
                     ->searchable(),
-                ImageColumn::make('hero_image'),
+                ImageColumn::make('hero_image')
+                    ->disk('public')
+                    ->getStateUsing(fn ($record) => MediaUrl::normalizeForFilamentColumn($record->hero_image))
+                    ->defaultImageUrl(fn ($record) => $record->hero_image_url),
                 TextColumn::make('color')
                     ->searchable(),
                 TextColumn::make('created_at')

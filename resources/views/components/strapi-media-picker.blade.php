@@ -7,9 +7,9 @@
 
 <div
     x-data="strapiAssetPicker({
-        fieldName: '{{ $name }}',
-        initialValue: '{{ $value ?? '' }}',
-        initialUrl: '{{ $imageUrl ?? '' }}'
+        fieldName: @js($name),
+        initialValue: @js($value ?? ''),
+        initialUrl: @js($imageUrl ?? '')
     })"
     class="space-y-2"
 >
@@ -30,6 +30,7 @@
     <!-- Hidden input that carries the selected asset value (storage path or URL) -->
     <input type="hidden" :name="fieldName" :value="currentValue">
     <input type="hidden" :name="fieldName + '_url'" :value="currentUrl">
+    <input type="hidden" :name="'remove_' + fieldName" :value="removed ? '1' : '0'">
     @error($name)
         <p class="text-xs text-red-600">{{ $message }}</p>
     @enderror
@@ -98,6 +99,7 @@
                 :name="'direct_' + fieldName"
                 accept="image/*"
                 class="hidden"
+                x-ref="directInput"
                 @change="handleDirectFile($event.target.files[0])"
             >
         </label>
@@ -167,7 +169,7 @@
                                 class="w-full pl-8 pr-3 py-1.5 text-xs border border-[#dcdce4] rounded-md focus:border-[#4945ff] text-[#32324d]"
                             >
                         </div>
-                        <span class="text-[11px] text-[#8e8ea9]" x-text="libraryAssets.length + ' assets available'"></span>
+                        <span class="text-[11px] text-[#8e8ea9]" x-text="(totalAssets || libraryAssets.length) + ' assets available'"></span>
                     </div>
 
                     <!-- Assets Grid -->
@@ -201,6 +203,20 @@
                             </div>
                         </template>
                     </div>
+
+                    <template x-if="hasMore">
+                        <div class="text-center pt-1">
+                            <button
+                                type="button"
+                                @click="loadLibrary(true)"
+                                :disabled="loading"
+                                class="px-4 py-1.5 text-xs font-medium text-[#4945ff] bg-[#f0ebfc] hover:bg-[#e5dcfa] rounded-lg transition disabled:opacity-50"
+                            >
+                                <span x-show="!loading">Muat lebih banyak aset</span>
+                                <span x-show="loading">Memuat...</span>
+                            </button>
+                        </div>
+                    </template>
                 </div>
 
                 <!-- Tab 2: Upload from Computer -->
@@ -291,18 +307,23 @@ function strapiAssetPicker(config) {
         currentValue: config.initialValue,
         currentUrl: config.initialUrl,
         currentName: '',
+        removed: false,
         openModal: false,
         activeTab: 'library',
         libraryAssets: [],
+        totalAssets: 0,
+        currentPage: 1,
+        hasMore: false,
         selectedItem: null,
         searchQuery: '',
         urlInput: '',
         loading: false,
         uploading: false,
 
-        loadLibrary() {
+        loadLibrary(append = false) {
             this.loading = true;
-            fetch('{{ route('strapi.media.index') }}?q=' + encodeURIComponent(this.searchQuery), {
+            const nextPage = append ? (this.currentPage + 1) : 1;
+            fetch('{{ route('strapi.media.index', [], false) }}?q=' + encodeURIComponent(this.searchQuery) + '&page=' + nextPage, {
                 headers: {
                     'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
@@ -316,7 +337,11 @@ function strapiAssetPicker(config) {
                 return res.json();
             })
             .then(data => {
-                this.libraryAssets = data.media || [];
+                const items = data.media || [];
+                this.libraryAssets = append ? this.libraryAssets.concat(items) : items;
+                this.totalAssets = data.total ?? this.libraryAssets.length;
+                this.currentPage = data.current_page ?? nextPage;
+                this.hasMore = Boolean(data.has_more);
                 this.loading = false;
             })
             .catch(() => {
@@ -336,6 +361,7 @@ function strapiAssetPicker(config) {
                 this.currentValue = this.selectedItem.file_path;
                 this.currentUrl = this.selectedItem.url;
                 this.currentName = this.selectedItem.name;
+                this.removed = false;
             }
             this.openModal = false;
         },
@@ -345,30 +371,41 @@ function strapiAssetPicker(config) {
                 this.currentValue = this.urlInput;
                 this.currentUrl = this.urlInput;
                 this.currentName = 'Remote Web Image';
+                this.removed = false;
                 this.openModal = false;
             }
         },
 
-        uploadFile(file) {
+        uploadFile(file, sourceInput = null) {
             if (!file) return;
             this.uploading = true;
             const formData = new FormData();
             formData.append('file', file);
             formData.append('_token', '{{ csrf_token() }}');
 
-            fetch('{{ route('strapi.media.store') }}', {
+            fetch('{{ route('strapi.media.store', [], false) }}', {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: formData
             })
             .then(async (response) => {
-                const data = await response.json();
+                const rawBody = await response.text();
+                let data = {};
+                try {
+                    data = rawBody ? JSON.parse(rawBody) : {};
+                } catch {
+                    data = {};
+                }
 
                 if (!response.ok || !data.media) {
-                    throw new Error(data.message || 'Upload gagal. Periksa file lalu coba lagi.');
+                    const validationMessage = data.errors
+                        ? Object.values(data.errors).flat()[0]
+                        : null;
+                    throw new Error(validationMessage || data.message || `Upload gagal (HTTP ${response.status}). Periksa file lalu coba lagi.`);
                 }
 
                 return data;
@@ -377,9 +414,19 @@ function strapiAssetPicker(config) {
                 this.currentValue = data.media.file_path;
                 this.currentUrl = data.media.url;
                 this.currentName = data.media.name;
+                this.removed = false;
+                if (sourceInput) {
+                    sourceInput.value = '';
+                }
+                if (this.$refs.computerInput) {
+                    this.$refs.computerInput.value = '';
+                }
                 this.openModal = false;
             })
             .catch((error) => {
+                if (sourceInput) {
+                    sourceInput.value = '';
+                }
                 window.dispatchEvent(new CustomEvent('app-toast', {
                     detail: { type: 'error', message: error.message || 'Upload gagal. Periksa koneksi lalu coba lagi.' },
                 }));
@@ -398,7 +445,7 @@ function strapiAssetPicker(config) {
 
         handleDirectFile(file) {
             if (file) {
-                this.uploadFile(file);
+                this.uploadFile(file, this.$refs.directInput);
             }
         },
 
@@ -407,6 +454,13 @@ function strapiAssetPicker(config) {
             this.currentUrl = '';
             this.currentName = '';
             this.selectedItem = null;
+            this.removed = true;
+            if (this.$refs.directInput) {
+                this.$refs.directInput.value = '';
+            }
+            if (this.$refs.computerInput) {
+                this.$refs.computerInput.value = '';
+            }
         }
     };
 }
